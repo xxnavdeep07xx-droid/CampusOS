@@ -184,3 +184,123 @@ export function fileColorLabel(c: FileColor): string {
     default:        return "FILE";
   }
 }
+
+// ============================================================
+// Phase 3 — Digital Attendance & Timetable Management types
+// ============================================================
+
+export type AttendanceStatus = "present" | "absent" | "late";
+
+export interface Attendance {
+  id: string;
+  class_id: string;
+  student_id: string;
+  date: string; // ISO date (YYYY-MM-DD)
+  status: AttendanceStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Attendance row with the student's profile denormalized — used by the teacher's attendance taker. */
+export interface AttendanceWithStudent extends Attendance {
+  student?: Pick<Profile, "id" | "full_name"> | null;
+}
+
+/** 1 = Monday ... 5 = Friday */
+export type DayOfWeek = 1 | 2 | 3 | 4 | 5;
+
+export interface Timetable {
+  id: string;
+  class_id: string;
+  day_of_week: DayOfWeek;
+  start_time: string; // "HH:MM:SS"
+  end_time: string;   // "HH:MM:SS"
+  subject_name: string;
+  created_at: string;
+}
+
+/** Timetable with the class denormalized — used by the teacher's weekly schedule view. */
+export interface TimetableWithClass extends Timetable {
+  classes?: Pick<ClassRoom, "id" | "name"> | null;
+}
+
+// ---------- helpers ----------
+
+export const DAYS_OF_WEEK: { value: DayOfWeek; label: string; short: string }[] = [
+  { value: 1, label: "Monday",    short: "Mon" },
+  { value: 2, label: "Tuesday",   short: "Tue" },
+  { value: 3, label: "Wednesday", short: "Wed" },
+  { value: 4, label: "Thursday",  short: "Thu" },
+  { value: 5, label: "Friday",    short: "Fri" },
+];
+
+export function dayName(d: DayOfWeek): string {
+  return DAYS_OF_WEEK.find((x) => x.value === d)?.label ?? "—";
+}
+
+export function dayShort(d: DayOfWeek): string {
+  return DAYS_OF_WEEK.find((x) => x.value === d)?.short ?? "—";
+}
+
+/**
+ * Attendance status → brutalist bg-* class. Used for the toggle buttons
+ * and the status badges in the attendance history list.
+ */
+export function statusBgClass(s: AttendanceStatus): string {
+  switch (s) {
+    case "present": return "bg-emerald-500";
+    case "absent":  return "bg-rose-500";
+    case "late":    return "bg-amber-400";
+  }
+}
+
+/**
+ * Attendance status → text-friendly label.
+ */
+export function statusLabel(s: AttendanceStatus): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Attendance status → text color class for the selected-state of a toggle button.
+ */
+export function statusTextClass(s: AttendanceStatus): string {
+  switch (s) {
+    case "present": return "text-[#FDFBF7]";
+    case "absent":  return "text-[#FDFBF7]";
+    case "late":    return "text-slate-900";
+  }
+}
+
+/**
+ * Parse "HH:MM:SS" → minutes-since-midnight. Returns 0 for null/invalid.
+ */
+export function timeToMinutes(t: string | null | undefined): number {
+  if (!t) return 0;
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t);
+  if (!m) return 0;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+/**
+ * Format "HH:MM:SS" → "h:mm AM/PM" (e.g. "14:30:00" → "2:30 PM").
+ */
+export function formatTime(t: string | null | undefined): string {
+  if (!t) return "—";
+  const mins = timeToMinutes(t);
+  const h24 = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h24 >= 12 ? "PM" : "AM";
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+/**
+ * Convert a Date to YYYY-MM-DD in local timezone (for the `date` column).
+ */
+export function toDateInputValue(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}

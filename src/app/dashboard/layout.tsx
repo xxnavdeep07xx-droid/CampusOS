@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   Building2,
+  CalendarCheck,
+  CalendarDays,
   GraduationCap,
   LayoutDashboard,
   LogOut,
@@ -152,12 +154,14 @@ function buildNav(role: UserRole | null) {
       ...common,
       { href: "/dashboard/staff", label: "Staff & Teachers", icon: Users },
       { href: "/dashboard/classes", label: "All Classes", icon: Building2 },
+      { href: "/dashboard/teacher/schedule", label: "School Schedule", icon: CalendarDays },
     ];
   }
   if (role === "teacher") {
     return [
       ...common,
       { href: "/dashboard/teacher", label: "My Classes", icon: GraduationCap },
+      { href: "/dashboard/teacher/schedule", label: "My Schedule", icon: CalendarDays },
       { href: "/dashboard/students", label: "My Students", icon: UserCog },
     ];
   }
@@ -165,6 +169,8 @@ function buildNav(role: UserRole | null) {
     return [
       ...common,
       { href: "/dashboard/classes", label: "My Class", icon: Building2 },
+      { href: "/dashboard/attendance", label: "My Attendance", icon: CalendarCheck },
+      { href: "/dashboard/schedule", label: "My Schedule", icon: CalendarDays },
     ];
   }
   return common;

@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Building2,
+  CalendarCheck,
   GraduationCap,
   QrCode,
   Sparkles,
@@ -12,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tag } from "@/components/brutal/section";
+import { StatCard } from "@/components/brutal/stat-card";
 import { InviteCard } from "@/components/brutal/invite-card";
 import type { Profile, School, Invitation, UserRole } from "@/lib/types";
 
@@ -62,6 +64,40 @@ export default async function PrincipalDashboardPage() {
         .eq("role", "student"),
     ]);
 
+  // ===== Today's attendance rate (Phase 3 analytics widget) =====
+  // Fetch all attendance rows for today across all classes in the school.
+  // Errors are tolerated (e.g. Phase 3 migration not applied yet).
+  const today = new Date().toISOString().slice(0, 10);
+  let attendanceRate: number | null = null;
+  let presentToday = 0;
+  let totalMarkedToday = 0;
+  let attendanceMigrationMissing = false;
+  try {
+    // We can't filter by school_id directly (attendance table doesn't
+    // have it), so we fetch today's attendance joined with the class's
+    // school_id and filter client-side.
+    const { data: todayRows, error: todayErr } = await supabase
+      .from("attendance")
+      .select("status, classes!inner(school_id)")
+      .eq("date", today)
+      .eq("classes.school_id", p?.school_id ?? "");
+
+    if (todayErr && /Could not find the table/i.test(todayErr.message)) {
+      attendanceMigrationMissing = true;
+    } else if (!todayErr && todayRows) {
+      for (const r of todayRows as Array<{ status: string }>) {
+        totalMarkedToday++;
+        if (r.status === "present") presentToday++;
+      }
+      attendanceRate =
+        totalMarkedToday > 0
+          ? Math.round((presentToday / totalMarkedToday) * 100)
+          : null;
+    }
+  } catch (err) {
+    console.warn("attendance analytics error:", err);
+  }
+
   // Recent invitations for the activity feed.
   const { data: recentInvites } = await supabase
     .from("invitations")
@@ -89,31 +125,57 @@ export default async function PrincipalDashboardPage() {
         </p>
       </div>
 
-      {/* Stat grid */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      {/* Stat grid — vibrant chunky cards, one per Phase 3 spec color */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
         <StatCard
-          icon={<UserCog className="size-5" />}
-          label="Staff"
-          value={staffCount ?? 0}
-          color="bg-sky-300"
-        />
-        <StatCard
-          icon={<GraduationCap className="size-5" />}
-          label="Teachers"
-          value={teacherCount ?? 0}
-          color="bg-violet-300"
-        />
-        <StatCard
-          icon={<Building2 className="size-5" />}
-          label="Classes"
-          value={classCount ?? 0}
+          icon={Users}
+          label="Total Students"
+          value={studentCount ?? 0}
+          sublabel="Enrolled across all classes"
           color="bg-amber-300"
         />
         <StatCard
-          icon={<Users className="size-5" />}
-          label="Students"
-          value={studentCount ?? 0}
-          color="bg-rose-300"
+          icon={GraduationCap}
+          label="Total Teachers"
+          value={teacherCount ?? 0}
+          sublabel="Active teaching staff"
+          color="bg-violet-400"
+        />
+        <StatCard
+          icon={UserCog}
+          label="Staff"
+          value={staffCount ?? 0}
+          sublabel="Non-teaching staff"
+          color="bg-sky-300"
+        />
+        <StatCard
+          icon={Building2}
+          label="Classes"
+          value={classCount ?? 0}
+          sublabel="Across your school"
+          color="bg-emerald-400"
+        />
+        {/* Today's Attendance Rate widget (Phase 3) */}
+        <StatCard
+          icon={CalendarCheck}
+          label="Today's Attendance"
+          value={attendanceRate !== null ? `${attendanceRate}%` : "—"}
+          sublabel={
+            attendanceMigrationMissing
+              ? "Phase 3 migration needed"
+              : attendanceRate !== null
+              ? `${presentToday}/${totalMarkedToday} present today`
+              : "No attendance marked today"
+          }
+          color={
+            attendanceRate === null
+              ? "bg-slate-300"
+              : attendanceRate >= 90
+              ? "bg-emerald-400"
+              : attendanceRate >= 75
+              ? "bg-amber-300"
+              : "bg-rose-400"
+          }
         />
       </div>
 
@@ -180,37 +242,6 @@ export default async function PrincipalDashboardPage() {
         )}
       </div>
     </div>
-  );
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <Card className="brutal-hover overflow-hidden">
-      <div className={`h-2 w-full border-x-2 border-t-2 border-slate-900 ${color}`} />
-      <CardContent className="pt-4">
-        <div className="flex items-center gap-2">
-          <div
-            className={`flex size-9 items-center justify-center rounded-lg border-2 border-slate-900 ${color} shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]`}
-          >
-            {icon}
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
-            {label}
-          </span>
-        </div>
-        <div className="mt-3 text-3xl font-black text-slate-900">{value}</div>
-      </CardContent>
-    </Card>
   );
 }
 
