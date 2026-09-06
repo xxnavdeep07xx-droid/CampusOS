@@ -5,6 +5,13 @@ import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Neo-brutalist Tabs override.
+ *
+ * - List: white card with thick black border + hard shadow.
+ * - Trigger: pill button that pops (border + bg + shadow) when active.
+ * - Trigger inactive: transparent, just bold uppercase text.
+ */
 function Tabs({
   className,
   ...props
@@ -12,7 +19,7 @@ function Tabs({
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn("flex flex-col gap-4", className)}
       {...props}
     />
   )
@@ -26,7 +33,7 @@ function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]",
+        "inline-flex w-fit items-center gap-1.5 rounded-2xl border-2 border-slate-900 bg-white p-1.5 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]",
         className
       )}
       {...props}
@@ -42,7 +49,12 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "data-[state=active]:bg-background dark:data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 text-foreground dark:text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border-2 border-transparent px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 transition-all",
+        "hover:border-slate-900 hover:bg-amber-100 hover:text-slate-900",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30",
+        "disabled:pointer-events-none disabled:opacity-50",
+        "data-[state=active]:border-slate-900 data-[state=active]:bg-slate-900 data-[state=active]:text-[#FDFBF7] data-[state=active]:shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]",
+        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -57,7 +69,10 @@ function TabsContent({
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
-      className={cn("flex-1 outline-none", className)}
+      className={cn(
+        "flex-1 outline-none data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:zoom-in-95 data-[state=active]:duration-200",
+        className
+      )}
       {...props}
     />
   )
