@@ -5,7 +5,7 @@
  * Keep them in sync if you add columns to the SQL.
  */
 
-export type UserRole = "principal" | "teacher" | "staff" | "student";
+export type UserRole = "principal" | "teacher" | "staff" | "student" | "parent";
 
 export interface School {
   id: string;
@@ -518,4 +518,92 @@ export function gradeHex(pct: number | null | undefined): string {
   if (pct >= 75) return "#f59e0b";
   if (pct >= 50) return "#7dd3fc";
   return "#fb7185";
+}
+
+// ============================================================
+// Phase 6 — Fee Management, Invoicing, & Parent Portal
+// ============================================================
+
+export type InvoiceStatus = "pending" | "paid" | "overdue";
+
+export interface FeeInvoice {
+  id: string;
+  school_id: string;
+  student_id: string;
+  title: string;
+  description: string;
+  total_amount: number;       // decimal(10,2) — stored as a JS number
+  due_date: string | null;    // ISO date (YYYY-MM-DD)
+  status: InvoiceStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Joined from profiles — present when fetched with the relation. */
+  student?: Pick<Profile, "id" | "full_name"> | null;
+}
+
+export interface Payment {
+  id: string;
+  invoice_id: string;
+  amount_paid: number;
+  payment_date: string;
+  payment_method: string;
+  receipt_url: string | null;
+}
+
+export interface GlobalNotice {
+  id: string;
+  school_id: string;
+  title: string;
+  content: string;
+  publish_date: string;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ParentStudentLink {
+  id: string;
+  parent_id: string;
+  student_id: string;
+  created_at: string;
+  /** Joined from profiles — the student's denormalized profile. */
+  student?: Pick<Profile, "id" | "full_name" | "class_id"> | null;
+}
+
+// ---------- helpers ----------
+
+/**
+ * Map an invoice status → a brutalist bg-* accent color.
+ *   - paid    → emerald (vibrant green)
+ *   - overdue → rose (vibrant red)
+ *   - pending → amber (yellow)
+ */
+export function invoiceStatusBgClass(s: InvoiceStatus): string {
+  switch (s) {
+    case "paid":    return "bg-emerald-500 text-[#FDFBF7]";
+    case "overdue": return "bg-rose-500 text-[#FDFBF7]";
+    case "pending":
+    default:         return "bg-amber-400 text-slate-900";
+  }
+}
+
+export function invoiceStatusLabel(s: InvoiceStatus): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Format a decimal amount as a currency string.
+ * Defaults to USD with no symbol-prefix customization — adjust as needed.
+ */
+export function formatCurrency(amount: number | string | null | undefined): string {
+  if (amount == null) return "$0.00";
+  const n = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (Number.isNaN(n)) return "$0.00";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
 }

@@ -5,17 +5,20 @@ import {
   Building2,
   CalendarCheck,
   CalendarDays,
+  DollarSign,
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   UserCog,
   Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { BrutalLogo } from "@/components/brutal/logo";
+import { GlobalNoticeBanner } from "@/components/brutal/global-notice-banner";
 import { signOutAction } from "@/app/login/actions";
-import type { Profile, UserRole } from "@/lib/types";
+import type { Profile, UserRole, GlobalNotice } from "@/lib/types";
 
 /**
  * DashboardLayout — the authenticated app shell.
@@ -54,25 +57,46 @@ export default async function DashboardLayout({
 
   const role: UserRole | null = (profile as Profile | null)?.role ?? null;
 
+  // Fetch active global notices for the banner. Best-effort — if the Phase 6
+  // migration isn't applied yet, notices will just be empty (the banner
+  // renders null).
+  let notices: GlobalNotice[] = [];
+  if ((profile as Profile | null)?.school_id) {
+    const { data: noticeRows } = await supabase
+      .from("global_notices")
+      .select("*")
+      .eq("school_id", (profile as Profile | null)!.school_id!)
+      .eq("is_active", true)
+      .lte("publish_date", new Date().toISOString().slice(0, 10))
+      .order("publish_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(5);
+    notices = (noticeRows ?? []) as unknown as GlobalNotice[];
+  }
+
   // Build the nav based on role.
   const nav = buildNav(role);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FDFBF7] md:flex-row">
-      {/* Sidebar */}
-      <aside className="flex w-full shrink-0 flex-col border-b-[3px] border-slate-900 bg-slate-900 text-[#FDFBF7] md:w-64 md:border-b-0 md:border-r-[3px]">
-        <div className="px-5 py-5">
-          <Link href="/" className="inline-flex">
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-xl border-2 border-[#FDFBF7] bg-emerald-500 font-black text-slate-900 shadow-[3px_3px_0px_0px_rgba(253,251,247,0.4)]">
-                C
+    <div className="flex min-h-screen flex-col bg-[#FDFBF7]">
+      {/* Global notice banner — at the very top, above the sidebar */}
+      <GlobalNoticeBanner notices={notices} />
+
+      <div className="flex flex-1 flex-col md:flex-row">
+        {/* Sidebar */}
+        <aside className="flex w-full shrink-0 flex-col border-b-[3px] border-slate-900 bg-slate-900 text-[#FDFBF7] md:w-64 md:border-b-0 md:border-r-[3px]">
+          <div className="px-5 py-5">
+            <Link href="/" className="inline-flex">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-9 items-center justify-center rounded-xl border-2 border-[#FDFBF7] bg-emerald-500 font-black text-slate-900 shadow-[3px_3px_0px_0px_rgba(253,251,247,0.4)]">
+                  C
+                </div>
+                <span className="text-lg font-black uppercase tracking-tight">
+                  Campus<span className="text-emerald-400">OS</span>
+                </span>
               </div>
-              <span className="text-lg font-black uppercase tracking-tight">
-                Campus<span className="text-emerald-400">OS</span>
-              </span>
-            </div>
-          </Link>
-        </div>
+            </Link>
+          </div>
 
         <div className="mx-3 mb-3 rounded-xl border-2 border-[#FDFBF7]/30 bg-slate-800 px-3 py-2.5">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -138,6 +162,7 @@ export default async function DashboardLayout({
         </div>
         <div className="px-5 py-8 md:px-8 md:py-10">{children}</div>
       </div>
+      </div>
     </div>
   );
 }
@@ -156,6 +181,8 @@ function buildNav(role: UserRole | null) {
       ...common,
       { href: "/dashboard/staff", label: "Staff & Teachers", icon: Users },
       { href: "/dashboard/classes", label: "All Classes", icon: Building2 },
+      { href: "/dashboard/admin/fees", label: "Fees", icon: DollarSign },
+      { href: "/dashboard/admin/notices", label: "Notices", icon: Megaphone },
       { href: "/dashboard/teacher/schedule", label: "School Schedule", icon: CalendarDays },
     ];
   }
@@ -174,6 +201,13 @@ function buildNav(role: UserRole | null) {
       { href: "/dashboard/attendance", label: "My Attendance", icon: CalendarCheck },
       { href: "/dashboard/schedule", label: "My Schedule", icon: CalendarDays },
       { href: "/dashboard/grades", label: "My Grades", icon: BarChart3 },
+    ];
+  }
+  if (role === "parent") {
+    return [
+      ...common,
+      { href: "/dashboard/parent", label: "My Children", icon: Users },
+      { href: "/dashboard/parent/fees", label: "Fees & Payments", icon: DollarSign },
     ];
   }
   return common;

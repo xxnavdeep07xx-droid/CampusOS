@@ -10,6 +10,8 @@ Phase 4 migration: [`migrations/0004_announcements_chat.sql`](./migrations/0004_
 
 Phase 5 migration: [`migrations/0005_quizzes_gradebook.sql`](./migrations/0005_quizzes_gradebook.sql) — creates `quizzes`, `quiz_questions`, `quiz_attempts` tables + the `class_gradebook` view that aggregates Phase 2 submissions + Phase 5 quiz_attempts into a per-student percentage. Includes `question_type` enum (mcq/short_answer), `attempt_status` enum (in_progress/completed), and a unique partial index so each student has at most one in-progress attempt per quiz.
 
+Phase 6 migration: [`migrations/0006_fees_parent_portal.sql`](./migrations/0006_fees_parent_portal.sql) — adds `'parent'` to the `user_role` enum, creates `parent_student_links`, `fee_invoices` (with `invoice_status` enum pending/paid/overdue), `payments`, and `global_notices` tables. RLS: parents see their linked children's data; principals/staff manage invoices + notices; students see their own invoices. Global notices appear as a dismissible banner at the top of every user's dashboard.
+
 ## Apply the migrations
 
 ### Option A — Supabase Dashboard SQL Editor (easiest)
@@ -20,8 +22,9 @@ Phase 5 migration: [`migrations/0005_quizzes_gradebook.sql`](./migrations/0005_q
 4. Open another fresh SQL editor tab, paste `migrations/0003_attendance_timetable.sql`, and click **Run**.
 5. Open another fresh SQL editor tab, paste `migrations/0004_announcements_chat.sql`, and click **Run**.
 6. Open another fresh SQL editor tab, paste `migrations/0005_quizzes_gradebook.sql`, and click **Run**.
+7. Open another fresh SQL editor tab, paste `migrations/0006_fees_parent_portal.sql`, and click **Run**.
 
-All five scripts are idempotent — safe to re-run.
+All six scripts are idempotent — safe to re-run.
 
 ### Option B — `psql` from your local machine
 
