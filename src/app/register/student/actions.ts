@@ -8,7 +8,7 @@ import type { UserRole } from "@/lib/types";
  *
  * Wrapped by useActionState, so the signature is `(prevState, formData)`.
  * We forward `formData` to the shared `registerWithInvite` with
- * `expectedRole = "student"`.
+ * `expectedRoles = "student"`.
  */
 export async function registerStudent(
   _prevState: { error?: string } | undefined,
@@ -16,6 +16,6 @@ export async function registerStudent(
 ): Promise<{ error?: string }> {
   return registerWithInvite({
     formData,
-    expectedRole: "student" as UserRole,
+    expectedRoles: "student" as UserRole,
   });
 }

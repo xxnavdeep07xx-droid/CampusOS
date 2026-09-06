@@ -37,8 +37,10 @@ export default async function TeacherRegisterPage({
     );
   }
 
-  // Token present — validate it server-side.
-  const valid = await validateInviteToken(token, "teacher");
+  // Token present — validate it server-side. The teacher registration page
+  // accepts both 'staff' and 'teacher' invitations — staff members go
+  // through the same onboarding flow as teachers.
+  const valid = await validateInviteToken(token, ["staff", "teacher"]);
 
   if (!valid) {
     return (

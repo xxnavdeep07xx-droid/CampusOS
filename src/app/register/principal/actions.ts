@@ -66,14 +66,12 @@ export async function registerPrincipal(
           "in your inbox first, then log in.",
       };
     }
-    if (!session) {
-      return {
-        error:
-          "Please check your inbox and click the confirmation link, then " +
-          "log in to finish setting up your school.",
-      };
-    }
 
+    // Always complete the school + profile wiring using the service-role
+    // client (which bypasses RLS and doesn't need a session). This means
+    // the principal can finish setting up their school even when Supabase
+    // is enforcing email confirmation — they'll just need to confirm + log
+    // in afterwards to actually access the dashboard.
     const admin = createAdminClient();
 
     const { data: schoolRow, error: schoolErr } = await admin
@@ -98,6 +96,16 @@ export async function registerPrincipal(
     if (profileErr) {
       return {
         error: "School created, but we could not link your profile: " + profileErr.message,
+      };
+    }
+
+    // If email confirmation is enabled, we won't have a session yet —
+    // bounce to /login with a friendly note instead of /dashboard.
+    if (!session) {
+      return {
+        error:
+          "Your school is set up! Please check your inbox and click the " +
+          "confirmation link, then log in to access your dashboard.",
       };
     }
 

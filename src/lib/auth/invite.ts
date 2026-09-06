@@ -13,7 +13,7 @@ import type { Invitation, UserRole } from "@/lib/types";
  */
 export async function validateInviteToken(
   token: string,
-  expectedRole: UserRole
+  expectedRoles: UserRole | UserRole[]
 ): Promise<{ invitation: Invitation; schoolName: string; className: string | null } | null> {
   if (!token || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
     return null;
@@ -40,7 +40,13 @@ export async function validateInviteToken(
   const invitation = inv as Invitation;
 
   if (invitation.is_used) return null;
-  if (invitation.role !== expectedRole) return null;
+
+  // Accept the token if its role matches any of the allowed roles.
+  // The teacher registration page accepts BOTH 'staff' and 'teacher'
+  // invitations — staff members are effectively teachers without an
+  // assigned class, and they share the same onboarding flow.
+  const allowed = Array.isArray(expectedRoles) ? expectedRoles : [expectedRoles];
+  if (!allowed.includes(invitation.role as UserRole)) return null;
 
   const { data: schoolRow } = await admin
     .from("schools")
@@ -118,13 +124,13 @@ export async function completeInviteOnboarding(args: {
  * Shared entrypoint invoked by the teacher / student registration forms.
  *
  * Wrapped by useActionState, so the signature is `(prevState, formData)`.
- * The `expectedRole` is captured via closure by the per-page wrapper.
+ * The `expectedRoles` is captured via closure by the per-page wrapper.
  */
 export async function registerWithInvite(args: {
   formData: FormData;
-  expectedRole: UserRole;
+  expectedRoles: UserRole | UserRole[];
 }): Promise<{ error?: string }> {
-  const { formData, expectedRole } = args;
+  const { formData, expectedRoles } = args;
 
   const fullName = String(formData.get("full_name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -142,7 +148,7 @@ export async function registerWithInvite(args: {
   }
 
   try {
-    const valid = await validateInviteToken(token, expectedRole);
+    const valid = await validateInviteToken(token, expectedRoles);
     if (!valid) {
       return {
         error:
@@ -172,14 +178,12 @@ export async function registerWithInvite(args: {
           "inbox first, then log in.",
       };
     }
-    if (!session) {
-      return {
-        error:
-          "Please check your inbox and click the confirmation link, then " +
-          "log in to finish setting up your account.",
-      };
-    }
 
+    // Always complete the onboarding wiring using the service-role client
+    // (which bypasses RLS and doesn't need a session). If email confirmation
+    // is enabled, the user will need to confirm + log in afterwards to
+    // actually access the dashboard — but their profile + role + school
+    // + class linkage is already in place.
     const wired = await completeInviteOnboarding({
       userId: user.id,
       invitation: valid.invitation,
@@ -187,6 +191,14 @@ export async function registerWithInvite(args: {
     });
     if (wired.error) {
       return wired;
+    }
+
+    if (!session) {
+      return {
+        error:
+          "You're all set! Please check your inbox and click the " +
+          "confirmation link, then log in to access your dashboard.",
+      };
     }
 
     revalidatePath("/dashboard");
