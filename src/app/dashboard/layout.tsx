@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
+  BarChart3,
   Building2,
   CalendarCheck,
   CalendarDays,
   GraduationCap,
+  HelpCircle,
   LayoutDashboard,
   LogOut,
   UserCog,
@@ -171,6 +173,7 @@ function buildNav(role: UserRole | null) {
       { href: "/dashboard/classes", label: "My Class", icon: Building2 },
       { href: "/dashboard/attendance", label: "My Attendance", icon: CalendarCheck },
       { href: "/dashboard/schedule", label: "My Schedule", icon: CalendarDays },
+      { href: "/dashboard/grades", label: "My Grades", icon: BarChart3 },
     ];
   }
   return common;

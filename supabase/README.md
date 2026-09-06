@@ -8,6 +8,8 @@ Phase 3 migration: [`migrations/0003_attendance_timetable.sql`](./migrations/000
 
 Phase 4 migration: [`migrations/0004_announcements_chat.sql`](./migrations/0004_announcements_chat.sql) — creates `announcements` (with `tag` enum-like CHECK constraint) and `class_messages` tables, enables Supabase Realtime publication on both, and sets `REPLICA IDENTITY FULL` so UPDATE/DELETE events carry the full row. Powers the real-time class feed + live chat.
 
+Phase 5 migration: [`migrations/0005_quizzes_gradebook.sql`](./migrations/0005_quizzes_gradebook.sql) — creates `quizzes`, `quiz_questions`, `quiz_attempts` tables + the `class_gradebook` view that aggregates Phase 2 submissions + Phase 5 quiz_attempts into a per-student percentage. Includes `question_type` enum (mcq/short_answer), `attempt_status` enum (in_progress/completed), and a unique partial index so each student has at most one in-progress attempt per quiz.
+
 ## Apply the migrations
 
 ### Option A — Supabase Dashboard SQL Editor (easiest)
@@ -17,8 +19,9 @@ Phase 4 migration: [`migrations/0004_announcements_chat.sql`](./migrations/0004_
 3. Open a fresh SQL editor tab, paste `migrations/0002_classroom_hub.sql`, and click **Run**.
 4. Open another fresh SQL editor tab, paste `migrations/0003_attendance_timetable.sql`, and click **Run**.
 5. Open another fresh SQL editor tab, paste `migrations/0004_announcements_chat.sql`, and click **Run**.
+6. Open another fresh SQL editor tab, paste `migrations/0005_quizzes_gradebook.sql`, and click **Run**.
 
-All four scripts are idempotent — safe to re-run.
+All five scripts are idempotent — safe to re-run.
 
 ### Option B — `psql` from your local machine
 
@@ -34,13 +37,16 @@ psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co
 
 psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
      -f supabase/migrations/0004_announcements_chat.sql
+
+psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
+     -f supabase/migrations/0005_quizzes_gradebook.sql
 ```
 
 If the direct host is unreachable from your network, use the pooler URL instead (find the region under *Project Settings → Database → Connection string*):
 
 ```bash
 psql "postgresql://postgres.uprkvbkqelrovmwrzieu:SjedAkLn91r1KB93@aws-0-<region>.pooler.supabase.com:5432/postgres" \
-     -f supabase/migrations/0004_announcements_chat.sql
+     -f supabase/migrations/0005_quizzes_gradebook.sql
 ```
 
 ## Storage buckets (Phase 2)

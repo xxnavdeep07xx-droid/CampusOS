@@ -380,3 +380,142 @@ export interface WhiteboardStroke {
   /** For text tool — the text to render at points[0]. */
   text?: string;
 }
+
+// ============================================================
+// Phase 5 — Assessments, Quizzes, & Automated Gradebook
+// ============================================================
+
+export type QuestionType = "mcq" | "short_answer";
+export type AttemptStatus = "in_progress" | "completed";
+
+export interface Quiz {
+  id: string;
+  class_id: string;
+  author_id: string;
+  title: string;
+  description: string;
+  time_limit_minutes: number | null;
+  due_date: string | null;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  quiz_id: string;
+  question_text: string;
+  question_type: QuestionType;
+  /** For MCQ: array of option strings. NULL for short_answer. */
+  options: string[] | null;
+  correct_answer: string;
+  points: number;
+  position: number;
+  created_at: string;
+}
+
+export interface QuizWithQuestions extends Quiz {
+  questions?: QuizQuestion[];
+  /** Joined from classes — used by the teacher's quiz list. */
+  classes?: { id: string; name: string } | null;
+}
+
+export interface QuizAttempt {
+  id: string;
+  quiz_id: string;
+  student_id: string;
+  /** { "<question_id>": "<student_answer>", ... } */
+  answers: Record<string, string>;
+  score: number;
+  max_score: number;
+  started_at: string;
+  completed_at: string | null;
+  status: AttemptStatus;
+}
+
+export interface QuizAttemptWithQuiz extends QuizAttempt {
+  quiz?: Pick<Quiz, "id" | "title" | "class_id" | "time_limit_minutes" | "due_date"> & {
+    classes?: { id: string; name: string } | null;
+  } | null;
+}
+
+/** A row from the class_gradebook view. */
+export interface GradebookRow {
+  school_id: string;
+  class_id: string;
+  class_name: string;
+  student_id: string;
+  student_name: string;
+  assignment_count: number;
+  assignment_total_points: number;
+  assignment_earned_points: number;
+  quiz_count: number;
+  quiz_total_points: number;
+  quiz_earned_points: number;
+  total_earned: number;
+  total_possible: number;
+  /** 0-100, or null if no graded work yet. */
+  percentage: number | null;
+}
+
+// ---------- helpers ----------
+
+/**
+ * Compute the score for a single question given the student's answer.
+ *
+ * - MCQ: case-insensitive exact match against one of the options.
+ * - short_answer: case-insensitive trimmed exact match against correct_answer.
+ *
+ * Returns the question's `points` if correct, 0 otherwise.
+ */
+export function gradeQuestion(
+  question: Pick<QuizQuestion, "question_type" | "correct_answer" | "points">,
+  studentAnswer: string | undefined
+): number {
+  if (!studentAnswer) return 0;
+  const ans = studentAnswer.trim().toLowerCase();
+  const correct = question.correct_answer.trim().toLowerCase();
+  if (!ans || !correct) return 0;
+  return ans === correct ? question.points : 0;
+}
+
+/**
+ * Compute total score + max score for a quiz attempt.
+ *
+ * Returns { score, maxScore }.
+ */
+export function gradeAttempt(
+  questions: QuizQuestion[],
+  answers: Record<string, string>
+): { score: number; maxScore: number } {
+  let score = 0;
+  let maxScore = 0;
+  for (const q of questions) {
+    maxScore += q.points;
+    score += gradeQuestion(q, answers[q.id]);
+  }
+  return { score, maxScore };
+}
+
+/**
+ * Map a percentage (0-100) to a brutalist bg-* accent color.
+ * Used by the gradebook + my-grades pages.
+ */
+export function gradeColor(pct: number | null | undefined): string {
+  if (pct == null) return "bg-slate-300";
+  if (pct >= 90) return "bg-emerald-500";
+  if (pct >= 75) return "bg-amber-400";
+  if (pct >= 50) return "bg-sky-300";
+  return "bg-rose-400";
+}
+
+/**
+ * Map a percentage to a hex color (for chart fills).
+ */
+export function gradeHex(pct: number | null | undefined): string {
+  if (pct == null) return "#cbd5e1";
+  if (pct >= 90) return "#10b981";
+  if (pct >= 75) return "#f59e0b";
+  if (pct >= 50) return "#7dd3fc";
+  return "#fb7185";
+}

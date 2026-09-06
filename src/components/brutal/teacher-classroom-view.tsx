@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  BarChart3,
   CalendarCheck,
   CalendarDays,
   ClipboardList,
   FileText,
   GraduationCap,
+  HelpCircle,
   Megaphone,
   PencilRuler,
   RefreshCw,
@@ -203,6 +205,24 @@ export function TeacherClassroomView({
             <Megaphone className="size-4" strokeWidth={2.5} />
             Class feed
           </Link>
+          {isTeacher && (
+            <Link
+              href={`/dashboard/classes/${cls.id}/quizzes/new`}
+              className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-rose-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 shadow-[3px_3px_0px_0px_rgba(136,19,55,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(136,19,55,1)]"
+            >
+              <HelpCircle className="size-4" strokeWidth={2.5} />
+              Build quiz
+            </Link>
+          )}
+          {isTeacher && (
+            <Link
+              href={`/dashboard/classes/${cls.id}/gradebook`}
+              className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-emerald-300 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 shadow-[3px_3px_0px_0px_rgba(6,95,70,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(6,95,70,1)]"
+            >
+              <BarChart3 className="size-4" strokeWidth={2.5} />
+              Gradebook
+            </Link>
+          )}
         </div>
 
         {/* ===== RESOURCES TAB ===== */}
