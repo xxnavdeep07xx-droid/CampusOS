@@ -10,6 +10,8 @@ import {
   FileText,
   GraduationCap,
   Inbox,
+  Megaphone,
+  PencilRuler,
   RefreshCw,
   UserCog,
 } from "lucide-react";
@@ -105,6 +107,24 @@ export function StudentClassroomView({
           You&apos;re enrolled in this class. Below are the resources your teacher
           has shared and any assignments you still need to submit.
         </p>
+      </div>
+
+      {/* Quick links: Whiteboard + Class Feed (Phase 4) */}
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href={`/dashboard/classes/${cls.id}/whiteboard`}
+          className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-sky-300 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 shadow-[3px_3px_0px_0px_rgba(7,89,133,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(7,89,133,1)]"
+        >
+          <PencilRuler className="size-4" strokeWidth={2.5} />
+          Open whiteboard
+        </Link>
+        <Link
+          href={`/dashboard/classes/${cls.id}/feed`}
+          className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-amber-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 shadow-[3px_3px_0px_0px_rgba(180,83,9,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(180,83,9,1)]"
+        >
+          <Megaphone className="size-4" strokeWidth={2.5} />
+          Class feed
+        </Link>
       </div>
 
       {/* Quick stats */}

@@ -6,6 +6,8 @@ Phase 2 migration: [`migrations/0002_classroom_hub.sql`](./migrations/0002_class
 
 Phase 3 migration: [`migrations/0003_attendance_timetable.sql`](./migrations/0003_attendance_timetable.sql) — creates `attendance` (with `attendance_status` enum + unique constraint per class/student/date) and `timetables` (with a GiST EXCLUDE constraint preventing overlapping slots per class+day) tables. Includes the `v_today_attendance_summary` view that powers the principal's "Today's Attendance Rate" widget.
 
+Phase 4 migration: [`migrations/0004_announcements_chat.sql`](./migrations/0004_announcements_chat.sql) — creates `announcements` (with `tag` enum-like CHECK constraint) and `class_messages` tables, enables Supabase Realtime publication on both, and sets `REPLICA IDENTITY FULL` so UPDATE/DELETE events carry the full row. Powers the real-time class feed + live chat.
+
 ## Apply the migrations
 
 ### Option A — Supabase Dashboard SQL Editor (easiest)
@@ -14,8 +16,9 @@ Phase 3 migration: [`migrations/0003_attendance_timetable.sql`](./migrations/000
 2. Copy the contents of `migrations/0001_init.sql` into the editor and click **Run**.
 3. Open a fresh SQL editor tab, paste `migrations/0002_classroom_hub.sql`, and click **Run**.
 4. Open another fresh SQL editor tab, paste `migrations/0003_attendance_timetable.sql`, and click **Run**.
+5. Open another fresh SQL editor tab, paste `migrations/0004_announcements_chat.sql`, and click **Run**.
 
-All three scripts are idempotent — safe to re-run.
+All four scripts are idempotent — safe to re-run.
 
 ### Option B — `psql` from your local machine
 
@@ -28,13 +31,16 @@ psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co
 
 psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
      -f supabase/migrations/0003_attendance_timetable.sql
+
+psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
+     -f supabase/migrations/0004_announcements_chat.sql
 ```
 
 If the direct host is unreachable from your network, use the pooler URL instead (find the region under *Project Settings → Database → Connection string*):
 
 ```bash
 psql "postgresql://postgres.uprkvbkqelrovmwrzieu:SjedAkLn91r1KB93@aws-0-<region>.pooler.supabase.com:5432/postgres" \
-     -f supabase/migrations/0003_attendance_timetable.sql
+     -f supabase/migrations/0004_announcements_chat.sql
 ```
 
 ## Storage buckets (Phase 2)

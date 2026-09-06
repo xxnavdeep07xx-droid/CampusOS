@@ -9,6 +9,8 @@ import {
   ClipboardList,
   FileText,
   GraduationCap,
+  Megaphone,
+  PencilRuler,
   RefreshCw,
   Users,
 } from "lucide-react";
@@ -167,9 +169,9 @@ export function TeacherClassroomView({
           </TabsTrigger>
         </TabsList>
 
-        {/* Quick links: Attendance + Schedule (Phase 3) */}
-        {isTeacher && (
-          <div className="flex flex-wrap gap-3 pt-1">
+        {/* Quick links: Attendance + Schedule + Whiteboard + Feed (Phases 3+4) */}
+        <div className="flex flex-wrap gap-3 pt-1">
+          {isTeacher && (
             <Link
               href={`/dashboard/classes/${cls.id}/attendance`}
               className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#FDFBF7] shadow-[3px_3px_0px_0px_rgba(5,150,105,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(5,150,105,1)]"
@@ -177,6 +179,8 @@ export function TeacherClassroomView({
               <CalendarCheck className="size-4" strokeWidth={2.5} />
               Take attendance
             </Link>
+          )}
+          {isTeacher && (
             <Link
               href="/dashboard/teacher/schedule"
               className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-violet-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 shadow-[3px_3px_0px_0px_rgba(91,33,182,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(91,33,182,1)]"
@@ -184,8 +188,22 @@ export function TeacherClassroomView({
               <CalendarDays className="size-4" strokeWidth={2.5} />
               Weekly schedule
             </Link>
-          </div>
-        )}
+          )}
+          <Link
+            href={`/dashboard/classes/${cls.id}/whiteboard`}
+            className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-sky-300 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 shadow-[3px_3px_0px_0px_rgba(7,89,133,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(7,89,133,1)]"
+          >
+            <PencilRuler className="size-4" strokeWidth={2.5} />
+            Open whiteboard
+          </Link>
+          <Link
+            href={`/dashboard/classes/${cls.id}/feed`}
+            className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-amber-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 shadow-[3px_3px_0px_0px_rgba(180,83,9,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(180,83,9,1)]"
+          >
+            <Megaphone className="size-4" strokeWidth={2.5} />
+            Class feed
+          </Link>
+        </div>
 
         {/* ===== RESOURCES TAB ===== */}
         <TabsContent value="resources" className="space-y-4">

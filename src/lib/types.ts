@@ -304,3 +304,79 @@ export function toDateInputValue(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+// ============================================================
+// Phase 4 — Interactive Digital Board (Whiteboard)
+//           & Real-Time Class Announcements
+// ============================================================
+
+/** Announcement tag — used for color-coded badges. */
+export type AnnouncementTag = "important" | "update" | "assignment" | "general";
+
+export interface Announcement {
+  id: string;
+  class_id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  tag: AnnouncementTag;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+  /** Joined from profiles — only present when fetched with the relation. */
+  author?: Pick<Profile, "id" | "full_name" | "role"> | null;
+}
+
+export interface ClassMessage {
+  id: string;
+  class_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  /** Joined from profiles — only present when fetched with the relation. */
+  sender?: Pick<Profile, "id" | "full_name" | "role"> | null;
+}
+
+// ---------- helpers ----------
+
+export const ANNOUNCEMENT_TAGS: {
+  value: AnnouncementTag;
+  label: string;
+  bgClass: string;
+  textClass: string;
+  emoji: string;
+}[] = [
+  { value: "important", label: "Important",        bgClass: "bg-rose-400",   textClass: "text-slate-900",  emoji: "⚠"  },
+  { value: "update",    label: "Update",           bgClass: "bg-sky-300",    textClass: "text-slate-900",  emoji: "✦"  },
+  { value: "assignment",label: "Assignment Alert",  bgClass: "bg-amber-400", textClass: "text-slate-900",  emoji: "✎"  },
+  { value: "general",   label: "General",           bgClass: "bg-slate-300",  textClass: "text-slate-900",  emoji: "•"  },
+];
+
+export function announcementTagMeta(tag: AnnouncementTag | string) {
+  return (
+    ANNOUNCEMENT_TAGS.find((t) => t.value === tag) ?? ANNOUNCEMENT_TAGS[3]
+  );
+}
+
+// ---------- Whiteboard tool types ----------
+
+export type WhiteboardTool =
+  | "pen"
+  | "highlighter"
+  | "eraser"
+  | "rectangle"
+  | "circle"
+  | "line"
+  | "text";
+
+export type WhiteboardBackground = "white" | "grid" | "lined" | "chalkboard";
+
+export interface WhiteboardStroke {
+  tool: WhiteboardTool;
+  color: string;
+  width: number;
+  /** Array of [x, y] points (canvas coords). For shapes, only [start, end] are used. */
+  points: Array<[number, number]>;
+  /** For text tool — the text to render at points[0]. */
+  text?: string;
+}
