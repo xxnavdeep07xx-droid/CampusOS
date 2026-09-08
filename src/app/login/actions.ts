@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/server";
  * loginAction — email + password sign-in. On success, redirect to ?next=
  * (defaults to /dashboard). On failure, return the localized error message.
  *
- * Wrapped by useActionState, so the signature is `(prevState, formData)`.
+ * CRITICAL: redirect() must NOT be inside a try/catch block in Next.js 16.
+ * We use a flag variable + call redirect() after the try/catch exits.
  */
 export async function loginAction(
   _prevState: { error?: string; next?: string } | undefined,
@@ -22,39 +23,38 @@ export async function loginAction(
     return { error: "Please enter both your email and password." };
   }
 
+  let shouldRedirect = false;
+  let error: string | undefined;
+
   try {
     const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      const msg = error.message.toLowerCase();
+    if (authError) {
+      const msg = authError.message.toLowerCase();
       if (msg.includes("invalid login credentials")) {
-        return { error: "Wrong email or password. Please try again." };
+        error = "Wrong email or password. Please try again.";
+      } else if (msg.includes("email not confirmed")) {
+        error = "Please click the confirmation link in your inbox before logging in.";
+      } else if (msg.includes("rate limit")) {
+        error = "Too many attempts. Please wait a minute and try again.";
+      } else {
+        error = authError.message;
       }
-      if (msg.includes("email not confirmed")) {
-        return {
-          error:
-            "Please click the confirmation link in your inbox before logging in.",
-        };
-      }
-      if (msg.includes("rate limit")) {
-        return { error: "Too many attempts. Please wait a minute and try again." };
-      }
-      return { error: error.message };
+    } else {
+      shouldRedirect = true;
     }
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err);
+  }
 
+  // redirect() MUST be outside the try/catch — Next.js 16 requires it.
+  if (shouldRedirect) {
     revalidatePath(next, "page");
     redirect(next);
-  } catch (err) {
-    // redirect() throws a special error in Next.js — re-throw it so the
-    // redirect actually happens. In Next.js 16, the error carries a
-    // `digest` property starting with "NEXT_REDIRECT".
-    if (err instanceof Error && typeof err.digest === "string" && err.digest.startsWith("NEXT_REDIRECT")) {
-      throw err;
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    return { error: msg };
   }
+
+  return { error };
 }
 
 /**
@@ -65,7 +65,6 @@ export async function signOutAction(): Promise<void> {
     const supabase = await createClient();
     await supabase.auth.signOut();
   } catch (err) {
-    // Ignore env-var errors during sign-out so the user can still leave.
     console.warn("signOut error:", err);
   }
   revalidatePath("/", "page");

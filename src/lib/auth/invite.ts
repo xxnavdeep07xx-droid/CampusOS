@@ -147,70 +147,62 @@ export async function registerWithInvite(args: {
     return { error: "Password must be at least 8 characters long." };
   }
 
+  let shouldRedirect = false;
+  let error: string | undefined;
+
   try {
     const valid = await validateInviteToken(token, expectedRoles);
     if (!valid) {
-      return {
-        error:
-          "This invite link is no longer valid. It may have expired, been " +
-          "used already, or been issued for a different role. Ask the person " +
-          "who shared it with you to generate a new one.",
-      };
-    }
+      error =
+        "This invite link is no longer valid. It may have expired, been " +
+        "used already, or been issued for a different role. Ask the person " +
+        "who shared it with you to generate a new one.";
+    } else {
+      const supabase = await createClient();
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } },
+      });
 
-    const supabase = await createClient();
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName } },
-    });
+      if (signUpError) {
+        error = signUpError.message;
+      } else {
+        const user = signUpData.user;
+        const session = signUpData.session;
 
-    if (signUpError) {
-      return { error: signUpError.message };
+        if (!user) {
+          error =
+            "Account created, but we could not establish a session. If your " +
+            "project requires email confirmation, click the link in your " +
+            "inbox first, then log in.";
+        } else {
+          const wired = await completeInviteOnboarding({
+            userId: user.id,
+            invitation: valid.invitation,
+            fullName,
+          });
+          if (wired.error) {
+            error = wired.error;
+          } else if (!session) {
+            error =
+              "You're all set! Please check your inbox and click the " +
+              "confirmation link, then log in to access your dashboard.";
+          } else {
+            shouldRedirect = true;
+          }
+        }
+      }
     }
-    const user = signUpData.user;
-    const session = signUpData.session;
-    if (!user) {
-      return {
-        error:
-          "Account created, but we could not establish a session. If your " +
-          "project requires email confirmation, click the link in your " +
-          "inbox first, then log in.",
-      };
-    }
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err);
+  }
 
-    // Always complete the onboarding wiring using the service-role client
-    // (which bypasses RLS and doesn't need a session). If email confirmation
-    // is enabled, the user will need to confirm + log in afterwards to
-    // actually access the dashboard — but their profile + role + school
-    // + class linkage is already in place.
-    const wired = await completeInviteOnboarding({
-      userId: user.id,
-      invitation: valid.invitation,
-      fullName,
-    });
-    if (wired.error) {
-      return wired;
-    }
-
-    if (!session) {
-      return {
-        error:
-          "You're all set! Please check your inbox and click the " +
-          "confirmation link, then log in to access your dashboard.",
-      };
-    }
-
+  // redirect() MUST be outside the try/catch — Next.js 16 requires it.
+  if (shouldRedirect) {
     revalidatePath("/dashboard");
     redirect("/dashboard");
-  } catch (err) {
-    // redirect() throws a special error in Next.js — re-throw so the
-    // navigation actually happens. In Next.js 16, the error carries a
-    // `digest` property starting with "NEXT_REDIRECT".
-    if (err instanceof Error && typeof err.digest === "string" && err.digest.startsWith("NEXT_REDIRECT")) {
-      throw err;
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    return { error: msg };
   }
+
+  return { error };
 }
