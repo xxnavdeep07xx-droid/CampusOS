@@ -3,10 +3,12 @@ import Link from "next/link";
 import {
   BarChart3,
   Building2,
+  Bus,
   CalendarCheck,
   CalendarDays,
   ClipboardList,
   DollarSign,
+  FileText,
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
@@ -187,6 +189,7 @@ function buildNav(role: UserRole | null) {
       { href: "/dashboard/admin/notices", label: "Notices", icon: Megaphone },
       { href: "/dashboard/admin/library", label: "Library", icon: Library },
       { href: "/dashboard/admin/hr", label: "HR / Leave", icon: ClipboardList },
+      { href: "/dashboard/admin/transport", label: "Transport", icon: Bus },
       { href: "/dashboard/teacher/schedule", label: "School Schedule", icon: CalendarDays },
     ];
   }
@@ -204,6 +207,7 @@ function buildNav(role: UserRole | null) {
       ...common,
       { href: "/dashboard/classes", label: "My Class", icon: Building2 },
       { href: "/dashboard/library", label: "Library", icon: Library },
+      { href: "/dashboard/transport", label: "Transport", icon: Bus },
       { href: "/dashboard/attendance", label: "My Attendance", icon: CalendarCheck },
       { href: "/dashboard/schedule", label: "My Schedule", icon: CalendarDays },
       { href: "/dashboard/grades", label: "My Grades", icon: BarChart3 },

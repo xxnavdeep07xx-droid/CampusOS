@@ -14,6 +14,8 @@ Phase 6 migration: [`migrations/0006_fees_parent_portal.sql`](./migrations/0006_
 
 Phase 7 migration: [`migrations/0007_library_hr.sql`](./migrations/0007_library_hr.sql) — creates `books`, `book_issues` (with `issue_status` enum issued/returned/overdue), and `leave_requests` (with `leave_status` enum pending/approved/rejected) tables. Includes a DB trigger (`adjust_book_copies`) that auto-increments/decrements `available_copies` when books are issued or returned. RLS: school members can read books; students see their own issues; staff see their own leave requests; principals manage all leave requests in their school.
 
+Phase 8 migration: [`migrations/0008_transport_reports.sql`](./migrations/0008_transport_reports.sql) — creates `transport_routes` and `transport_stops` tables, adds `transport_stop_id` to `profiles` (nullable FK for students). RLS: school members read routes/stops; principals/staff write. Powers the transport management admin + parent/student timeline view.
+
 ## Apply the migrations
 
 ### Option A — Supabase Dashboard SQL Editor (easiest)
@@ -26,8 +28,9 @@ Phase 7 migration: [`migrations/0007_library_hr.sql`](./migrations/0007_library_
 6. Open another fresh SQL editor tab, paste `migrations/0005_quizzes_gradebook.sql`, and click **Run**.
 7. Open another fresh SQL editor tab, paste `migrations/0006_fees_parent_portal.sql`, and click **Run**.
 8. Open another fresh SQL editor tab, paste `migrations/0007_library_hr.sql`, and click **Run**.
+9. Open another fresh SQL editor tab, paste `migrations/0008_transport_reports.sql`, and click **Run**.
 
-All seven scripts are idempotent — safe to re-run.
+All eight scripts are idempotent — safe to re-run.
 
 ### Option B — `psql` from your local machine
 

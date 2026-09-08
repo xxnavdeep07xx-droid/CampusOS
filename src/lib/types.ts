@@ -695,3 +695,32 @@ export function daysUntilDue(dueDate: string): number {
   const due = new Date(dueDate + "T00:00:00");
   return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
+
+// ============================================================
+// Phase 8 — Transport Management & Automated PDF Report Cards
+// ============================================================
+
+export interface TransportRoute {
+  id: string;
+  school_id: string;
+  route_name: string;
+  vehicle_number: string;
+  driver_name: string;
+  driver_phone: string;
+  created_at: string;
+}
+
+export interface TransportStop {
+  id: string;
+  route_id: string;
+  stop_name: string;
+  pickup_time: string | null;  // "HH:MM:SS"
+  drop_time: string | null;   // "HH:MM:SS"
+  position: number;
+  created_at: string;
+}
+
+/** A stop joined with its route — used by the transport timeline. */
+export interface TransportStopWithRoute extends TransportStop {
+  route?: Pick<TransportRoute, "id" | "route_name" | "vehicle_number" | "driver_name" | "driver_phone"> | null;
+}
