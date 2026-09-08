@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { BookOpen, Library as LibraryIcon, Clock, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -86,10 +87,9 @@ export default async function StudentLibraryPage() {
                       <div className={cn("h-1.5 w-full border-x-2 border-t-2 border-slate-900", isOverdue ? "bg-rose-500" : dueSoon ? "bg-amber-400" : "bg-emerald-500")} />
                       <div className="flex items-center gap-3 p-3">
                         {/* Mini cover */}
-                        <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-slate-900 bg-violet-200">
+                        <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border-2 border-slate-900 bg-violet-200">
                           {issue.book?.cover_image_url ? (
-                             
-                            <img src={issue.book.cover_image_url} alt="" className="h-full w-full object-cover" />
+                            <Image src={issue.book.cover_image_url} alt="" fill sizes="48px" className="object-cover" loading="lazy" />
                           ) : (
                             <BookOpen className="size-5 text-slate-700" />
                           )}

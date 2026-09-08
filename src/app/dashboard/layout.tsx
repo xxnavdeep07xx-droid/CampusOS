@@ -19,18 +19,21 @@ import {
   Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { BrutalLogo } from "@/components/brutal/logo";
+import { getCachedProfile, getCachedSchool, getCachedNotices } from "@/lib/cached-queries";
 import { GlobalNoticeBanner } from "@/components/brutal/global-notice-banner";
 import { signOutAction } from "@/app/login/actions";
 import type { Profile, UserRole, GlobalNotice } from "@/lib/types";
 import Image from "next/image";
 
+// Revalidate the layout every 30 seconds (stale-while-revalidate).
+export const revalidate = 30;
+
 /**
  * DashboardLayout — the authenticated app shell.
  *
- * Server component. Fetches the current user + their profile, then renders
- * the sidebar + the page content. If there's no profile row yet (e.g. user
- * was created before the trigger), we let the page handle the empty state.
+ * Uses cached fetchers (getCachedProfile, getCachedSchool, getCachedNotices)
+ * to reduce Supabase round-trips. The layout itself is revalidated every
+ * 30s via Next.js ISR.
  */
 export default async function DashboardLayout({
   children,
@@ -46,38 +49,14 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Fetch the profile; if missing, the inner page will show a "set up your
-  // profile" empty state.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  // Use cached fetchers for profile + school + notices.
+  const profile = await getCachedProfile(user.id);
+  const schoolId = profile?.school_id ?? "";
 
-  // Fetch profile, school, and notices in parallel for performance.
-  const schoolId = (profile as Profile | null)?.school_id ?? "";
-
-  const [
-    { data: school },
-    { data: noticeRows },
-  ] = await Promise.all([
-    schoolId
-      ? supabase.from("schools").select("id, name, principal_id").eq("id", schoolId).single()
-      : Promise.resolve({ data: null }),
-    schoolId
-      ? supabase
-          .from("global_notices")
-          .select("*")
-          .eq("school_id", schoolId)
-          .eq("is_active", true)
-          .lte("publish_date", new Date().toISOString().slice(0, 10))
-          .order("publish_date", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(5)
-      : Promise.resolve({ data: null }),
+  const [school, notices] = await Promise.all([
+    schoolId ? getCachedSchool(schoolId) : Promise.resolve(null),
+    schoolId ? getCachedNotices(schoolId) : Promise.resolve([] as GlobalNotice[]),
   ]);
-
-  const notices = (noticeRows ?? []) as unknown as GlobalNotice[];
   const role: UserRole | null = (profile as Profile | null)?.role ?? null;
 
   // Build the nav based on role.

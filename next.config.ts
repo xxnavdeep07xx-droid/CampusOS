@@ -7,10 +7,15 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   allowedDevOrigins: ["*.space-z.ai"],
   images: {
-    // Allow remote patterns if needed in the future.
-    remotePatterns: [],
+    // Allow any remote image for book covers (URLs are user-provided).
+    // On Vercel, these go through the image optimization CDN automatically.
+    remotePatterns: [
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**" },
+    ],
+    // Optimize for common book cover sizes.
+    formats: ["image/avif", "image/webp"],
   },
-  // Enable experimental features for better performance.
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

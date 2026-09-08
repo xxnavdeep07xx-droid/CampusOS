@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Book as BookIcon, Library } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Book } from "@/lib/types";
@@ -45,11 +46,13 @@ export function BookCard({
       {/* Cover — fills top 60% */}
       <div className="relative aspect-[3/2] overflow-hidden border-b-[3px] border-slate-900">
         {book.cover_image_url ? (
-           
-          <img
+          <Image
             src={book.cover_image_url}
             alt={`Cover of ${book.title}`}
-            className="h-full w-full object-cover"
+            fill
+            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 25vw, 16vw"
+            className="object-cover"
+            loading="lazy"
           />
         ) : (
           <div className={cn("flex h-full w-full flex-col items-center justify-center p-2 text-center", coverBg)}>
