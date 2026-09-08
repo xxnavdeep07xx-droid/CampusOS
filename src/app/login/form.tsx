@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useActionState } from "react";
+import { use, useEffect, useRef, useActionState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,11 +18,20 @@ export function LoginForm({
 }) {
   const params = use(searchParams);
   const next = params.next ?? "/dashboard";
+  const router = useRouter();
+  const redirectedRef = useRef(false);
 
   const [state, formAction, pending] = useActionState<
-    { error?: string; next?: string } | undefined,
+    { error?: string; redirectUrl?: string } | undefined,
     FormData
   >(loginAction, undefined);
+
+  useEffect(() => {
+    if (state?.redirectUrl && !redirectedRef.current) {
+      redirectedRef.current = true;
+      router.push(state.redirectUrl);
+    }
+  }, [state, router]);
 
   return (
     <div className="space-y-6">

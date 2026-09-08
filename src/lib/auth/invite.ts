@@ -129,7 +129,7 @@ export async function completeInviteOnboarding(args: {
 export async function registerWithInvite(args: {
   formData: FormData;
   expectedRoles: UserRole | UserRole[];
-}): Promise<{ error?: string }> {
+}): Promise<{ error?: string; redirectUrl?: string }> {
   const { formData, expectedRoles } = args;
 
   const fullName = String(formData.get("full_name") ?? "").trim();
@@ -147,62 +147,61 @@ export async function registerWithInvite(args: {
     return { error: "Password must be at least 8 characters long." };
   }
 
-  let shouldRedirect = false;
-  let error: string | undefined;
-
   try {
     const valid = await validateInviteToken(token, expectedRoles);
     if (!valid) {
-      error =
-        "This invite link is no longer valid. It may have expired, been " +
-        "used already, or been issued for a different role. Ask the person " +
-        "who shared it with you to generate a new one.";
-    } else {
-      const supabase = await createClient();
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      });
-
-      if (signUpError) {
-        error = signUpError.message;
-      } else {
-        const user = signUpData.user;
-        const session = signUpData.session;
-
-        if (!user) {
-          error =
-            "Account created, but we could not establish a session. If your " +
-            "project requires email confirmation, click the link in your " +
-            "inbox first, then log in.";
-        } else {
-          const wired = await completeInviteOnboarding({
-            userId: user.id,
-            invitation: valid.invitation,
-            fullName,
-          });
-          if (wired.error) {
-            error = wired.error;
-          } else if (!session) {
-            error =
-              "You're all set! Please check your inbox and click the " +
-              "confirmation link, then log in to access your dashboard.";
-          } else {
-            shouldRedirect = true;
-          }
-        }
-      }
+      return {
+        error:
+          "This invite link is no longer valid. It may have expired, been " +
+          "used already, or been issued for a different role. Ask the person " +
+          "who shared it with you to generate a new one.",
+      };
     }
-  } catch (err) {
-    error = err instanceof Error ? err.message : String(err);
-  }
 
-  // redirect() MUST be outside the try/catch — Next.js 16 requires it.
-  if (shouldRedirect) {
+    const supabase = await createClient();
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } },
+    });
+
+    if (signUpError) {
+      return { error: signUpError.message };
+    }
+
+    const user = signUpData.user;
+    const session = signUpData.session;
+
+    if (!user) {
+      return {
+        error:
+          "Account created, but we could not establish a session. If your " +
+          "project requires email confirmation, click the link in your " +
+          "inbox first, then log in.",
+      };
+    }
+
+    const wired = await completeInviteOnboarding({
+      userId: user.id,
+      invitation: valid.invitation,
+      fullName,
+    });
+    if (wired.error) {
+      return wired;
+    }
+
+    if (!session) {
+      return {
+        error:
+          "You're all set! Please check your inbox and click the " +
+          "confirmation link, then log in to access your dashboard.",
+      };
+    }
+
+    // Return redirect URL instead of calling redirect().
     revalidatePath("/dashboard");
-    redirect("/dashboard");
+    return { redirectUrl: "/dashboard" };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
   }
-
-  return { error };
 }

@@ -1,20 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * loginAction — email + password sign-in. On success, redirect to ?next=
- * (defaults to /dashboard). On failure, return the localized error message.
- *
- * CRITICAL: redirect() must NOT be inside a try/catch block in Next.js 16.
- * We use a flag variable + call redirect() after the try/catch exits.
+ * loginAction — email + password sign-in.
+ * Returns { error?, redirectUrl? } — the client handles the redirect.
+ * This avoids calling redirect() inside the server action entirely.
  */
 export async function loginAction(
-  _prevState: { error?: string; next?: string } | undefined,
+  _prevState: { error?: string; redirectUrl?: string } | undefined,
   formData: FormData
-): Promise<{ error?: string; next?: string }> {
+): Promise<{ error?: string; redirectUrl?: string }> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "/dashboard");
@@ -23,9 +20,6 @@ export async function loginAction(
     return { error: "Please enter both your email and password." };
   }
 
-  let shouldRedirect = false;
-  let error: string | undefined;
-
   try {
     const supabase = await createClient();
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
@@ -33,32 +27,27 @@ export async function loginAction(
     if (authError) {
       const msg = authError.message.toLowerCase();
       if (msg.includes("invalid login credentials")) {
-        error = "Wrong email or password. Please try again.";
-      } else if (msg.includes("email not confirmed")) {
-        error = "Please click the confirmation link in your inbox before logging in.";
-      } else if (msg.includes("rate limit")) {
-        error = "Too many attempts. Please wait a minute and try again.";
-      } else {
-        error = authError.message;
+        return { error: "Wrong email or password. Please try again." };
       }
-    } else {
-      shouldRedirect = true;
+      if (msg.includes("email not confirmed")) {
+        return { error: "Please click the confirmation link in your inbox before logging in." };
+      }
+      if (msg.includes("rate limit")) {
+        return { error: "Too many attempts. Please wait a minute and try again." };
+      }
+      return { error: authError.message };
     }
-  } catch (err) {
-    error = err instanceof Error ? err.message : String(err);
-  }
 
-  // redirect() MUST be outside the try/catch — Next.js 16 requires it.
-  if (shouldRedirect) {
     revalidatePath(next, "page");
-    redirect(next);
+    return { redirectUrl: next };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
   }
-
-  return { error };
 }
 
 /**
  * signOutAction — clears the session and bounces to the landing page.
+ * This one is safe to use redirect() because it's not wrapped by useActionState.
  */
 export async function signOutAction(): Promise<void> {
   try {
@@ -68,5 +57,8 @@ export async function signOutAction(): Promise<void> {
     console.warn("signOut error:", err);
   }
   revalidatePath("/", "page");
-  redirect("/");
+  // Use window.location for sign-out — it's a full page reload anyway.
+  if (typeof window !== "undefined") {
+    window.location.href = "/";
+  }
 }

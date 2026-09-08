@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useEffect, useRef, useActionState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Building2, Lock, Mail, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,10 +18,19 @@ export function TeacherRegisterForm({
   token: string;
   schoolName: string;
 }) {
+  const router = useRouter();
+  const redirectedRef = useRef(false);
   const [state, formAction, pending] = useActionState<
-    { error?: string } | undefined,
+    { error?: string; redirectUrl?: string } | undefined,
     FormData
   >(registerTeacher, undefined);
+
+  useEffect(() => {
+    if (state?.redirectUrl && !redirectedRef.current) {
+      redirectedRef.current = true;
+      router.push(state.redirectUrl);
+    }
+  }, [state, router]);
 
   return (
     <div className="space-y-6">

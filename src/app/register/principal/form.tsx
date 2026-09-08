@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useEffect, useRef, useActionState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Building2, Mail, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,20 @@ import { Tag } from "@/components/brutal/section";
 import { registerPrincipal } from "./actions";
 
 export function PrincipalRegisterForm() {
+  const router = useRouter();
+  const redirectedRef = useRef(false);
   const [state, formAction, pending] = useActionState<
-    { error?: string } | undefined,
+    { error?: string; redirectUrl?: string } | undefined,
     FormData
   >(registerPrincipal, undefined);
+
+  // Handle client-side redirect when the action returns redirectUrl.
+  useEffect(() => {
+    if (state?.redirectUrl && !redirectedRef.current) {
+      redirectedRef.current = true;
+      router.push(state.redirectUrl);
+    }
+  }, [state, router]);
 
   return (
     <div className="space-y-6">
