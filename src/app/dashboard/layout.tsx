@@ -5,10 +5,12 @@ import {
   Building2,
   CalendarCheck,
   CalendarDays,
+  ClipboardList,
   DollarSign,
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
+  Library,
   LogOut,
   Megaphone,
   UserCog,
@@ -183,6 +185,8 @@ function buildNav(role: UserRole | null) {
       { href: "/dashboard/classes", label: "All Classes", icon: Building2 },
       { href: "/dashboard/admin/fees", label: "Fees", icon: DollarSign },
       { href: "/dashboard/admin/notices", label: "Notices", icon: Megaphone },
+      { href: "/dashboard/admin/library", label: "Library", icon: Library },
+      { href: "/dashboard/admin/hr", label: "HR / Leave", icon: ClipboardList },
       { href: "/dashboard/teacher/schedule", label: "School Schedule", icon: CalendarDays },
     ];
   }
@@ -191,6 +195,7 @@ function buildNav(role: UserRole | null) {
       ...common,
       { href: "/dashboard/teacher", label: "My Classes", icon: GraduationCap },
       { href: "/dashboard/teacher/schedule", label: "My Schedule", icon: CalendarDays },
+      { href: "/dashboard/teacher/leave", label: "Leave Requests", icon: ClipboardList },
       { href: "/dashboard/students", label: "My Students", icon: UserCog },
     ];
   }
@@ -198,6 +203,7 @@ function buildNav(role: UserRole | null) {
     return [
       ...common,
       { href: "/dashboard/classes", label: "My Class", icon: Building2 },
+      { href: "/dashboard/library", label: "Library", icon: Library },
       { href: "/dashboard/attendance", label: "My Attendance", icon: CalendarCheck },
       { href: "/dashboard/schedule", label: "My Schedule", icon: CalendarDays },
       { href: "/dashboard/grades", label: "My Grades", icon: BarChart3 },

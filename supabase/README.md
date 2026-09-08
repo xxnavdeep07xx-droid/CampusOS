@@ -12,6 +12,8 @@ Phase 5 migration: [`migrations/0005_quizzes_gradebook.sql`](./migrations/0005_q
 
 Phase 6 migration: [`migrations/0006_fees_parent_portal.sql`](./migrations/0006_fees_parent_portal.sql) — adds `'parent'` to the `user_role` enum, creates `parent_student_links`, `fee_invoices` (with `invoice_status` enum pending/paid/overdue), `payments`, and `global_notices` tables. RLS: parents see their linked children's data; principals/staff manage invoices + notices; students see their own invoices. Global notices appear as a dismissible banner at the top of every user's dashboard.
 
+Phase 7 migration: [`migrations/0007_library_hr.sql`](./migrations/0007_library_hr.sql) — creates `books`, `book_issues` (with `issue_status` enum issued/returned/overdue), and `leave_requests` (with `leave_status` enum pending/approved/rejected) tables. Includes a DB trigger (`adjust_book_copies`) that auto-increments/decrements `available_copies` when books are issued or returned. RLS: school members can read books; students see their own issues; staff see their own leave requests; principals manage all leave requests in their school.
+
 ## Apply the migrations
 
 ### Option A — Supabase Dashboard SQL Editor (easiest)
@@ -23,8 +25,9 @@ Phase 6 migration: [`migrations/0006_fees_parent_portal.sql`](./migrations/0006_
 5. Open another fresh SQL editor tab, paste `migrations/0004_announcements_chat.sql`, and click **Run**.
 6. Open another fresh SQL editor tab, paste `migrations/0005_quizzes_gradebook.sql`, and click **Run**.
 7. Open another fresh SQL editor tab, paste `migrations/0006_fees_parent_portal.sql`, and click **Run**.
+8. Open another fresh SQL editor tab, paste `migrations/0007_library_hr.sql`, and click **Run**.
 
-All six scripts are idempotent — safe to re-run.
+All seven scripts are idempotent — safe to re-run.
 
 ### Option B — `psql` from your local machine
 

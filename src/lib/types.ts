@@ -607,3 +607,91 @@ export function formatCurrency(amount: number | string | null | undefined): stri
     maximumFractionDigits: 2,
   }).format(n);
 }
+
+// ============================================================
+// Phase 7 — Library Management & Staff HR (Leave Requests)
+// ============================================================
+
+export type IssueStatus = "issued" | "returned" | "overdue";
+
+export interface Book {
+  id: string;
+  school_id: string;
+  title: string;
+  author: string;
+  isbn: string | null;
+  total_copies: number;
+  available_copies: number;
+  cover_image_url: string | null;
+  created_at: string;
+}
+
+export interface BookIssue {
+  id: string;
+  book_id: string;
+  user_id: string;
+  issue_date: string;
+  due_date: string;
+  return_date: string | null;
+  status: IssueStatus;
+  created_at: string;
+  /** Joined from books — present when fetched with the relation. */
+  book?: Pick<Book, "id" | "title" | "author" | "cover_image_url"> | null;
+  /** Joined from profiles — the borrower. */
+  user?: Pick<Profile, "id" | "full_name" | "role"> | null;
+}
+
+export type LeaveStatus = "pending" | "approved" | "rejected";
+
+export interface LeaveRequest {
+  id: string;
+  staff_id: string;
+  school_id: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  status: LeaveStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  /** Joined from profiles — the staff member who requested the leave. */
+  staff?: Pick<Profile, "id" | "full_name" | "role"> | null;
+}
+
+// ---------- helpers ----------
+
+export function issueStatusBgClass(s: IssueStatus): string {
+  switch (s) {
+    case "issued":   return "bg-sky-300 text-slate-900";
+    case "returned":  return "bg-emerald-500 text-[#FDFBF7]";
+    case "overdue":   return "bg-rose-500 text-[#FDFBF7]";
+  }
+}
+
+export function issueStatusLabel(s: IssueStatus): string {
+  if (s === "issued") return "Issued";
+  if (s === "returned") return "Returned";
+  return "Overdue";
+}
+
+export function leaveStatusBgClass(s: LeaveStatus): string {
+  switch (s) {
+    case "pending":  return "bg-amber-400 text-slate-900";
+    case "approved": return "bg-emerald-500 text-[#FDFBF7]";
+    case "rejected": return "bg-rose-500 text-[#FDFBF7]";
+  }
+}
+
+export function leaveStatusLabel(s: LeaveStatus): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Days remaining until the due date. Negative if overdue.
+ */
+export function daysUntilDue(dueDate: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate + "T00:00:00");
+  return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
