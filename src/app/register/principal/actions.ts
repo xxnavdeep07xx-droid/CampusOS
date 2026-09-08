@@ -112,9 +112,10 @@ export async function registerPrincipal(
     revalidatePath("/dashboard");
     redirect("/dashboard");
   } catch (err) {
-    // redirect() throws from inside Next.js — re-throw it so the redirect
-    // actually happens. Any other error is surfaced as a friendly message.
-    if (err instanceof Error && err.message === "NEXT_REDIRECT") {
+    // redirect() throws a special error in Next.js — re-throw it so the
+    // redirect actually happens. In Next.js 16, the error carries a
+    // `digest` property starting with "NEXT_REDIRECT" (not `message`).
+    if (err instanceof Error && typeof err.digest === "string" && err.digest.startsWith("NEXT_REDIRECT")) {
       throw err;
     }
     const msg = err instanceof Error ? err.message : String(err);

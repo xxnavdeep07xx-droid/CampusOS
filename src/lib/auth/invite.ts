@@ -204,9 +204,10 @@ export async function registerWithInvite(args: {
     revalidatePath("/dashboard");
     redirect("/dashboard");
   } catch (err) {
-    // redirect() throws internally in Next.js — re-throw so the navigation
-    // actually happens.
-    if (err instanceof Error && err.message === "NEXT_REDIRECT") {
+    // redirect() throws a special error in Next.js — re-throw so the
+    // navigation actually happens. In Next.js 16, the error carries a
+    // `digest` property starting with "NEXT_REDIRECT".
+    if (err instanceof Error && typeof err.digest === "string" && err.digest.startsWith("NEXT_REDIRECT")) {
       throw err;
     }
     const msg = err instanceof Error ? err.message : String(err);
