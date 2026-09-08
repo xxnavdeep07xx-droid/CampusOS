@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "CampusOS Team" }],
   icons: {
-    icon: "/logo.svg",
+    icon: "/logo.png",
   },
   openGraph: {
     title: "CampusOS",

@@ -2,19 +2,22 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 /**
- * CampusOS middleware.
+ * CampusOS middleware — OPTIMIZED for performance.
  *
- * Responsibilities:
- *   1. Refresh the Supabase session cookie on every request (so it stays alive
- *      while the user is active and expires when they're idle).
- *   2. Protect `/dashboard/*` routes — redirect unauthenticated users to /login.
- *   3. Bounce already-authenticated users away from `/login` and `/register/*`
- *      → send them to `/dashboard`.
- *
- * Note: the matcher below excludes _next/static, _next/image, favicon, and
- * any asset-like path so this only runs on real pages + API routes.
+ * Only runs on /dashboard/* and auth routes (not on every page/API route).
+ * This avoids the Supabase getUser() call (which adds ~200ms per request)
+ * on static pages like the landing page, API routes, and assets.
  */
 export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  const isProtected = path.startsWith("/dashboard");
+  const isAuthRoute = path === "/login" || path.startsWith("/register");
+
+  // Skip middleware entirely for non-auth, non-dashboard routes.
+  if (!isProtected && !isAuthRoute) {
+    return NextResponse.next();
+  }
+
   const response = NextResponse.next();
 
   const supabase = createServerClient(
@@ -37,16 +40,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: do not run any code between createServerClient and
-  // supabase.auth.getUser — the cookie refresh happens here.
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
-  const isProtected = path.startsWith("/dashboard");
-  const isAuthRoute =
-    path === "/login" || path.startsWith("/register");
 
   // Not logged in + trying to hit a protected route → bounce to /login.
   if (isProtected && !user) {
@@ -56,10 +52,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Logged in + on an auth route (e.g. /login) → bounce to /dashboard.
-  // Exception: /register/* routes that carry an invite token are still
-  // allowed, so an authenticated principal can preview an invite link they
-  // just generated.
+  // Logged in + on an auth route → bounce to /dashboard.
   const hasToken = request.nextUrl.searchParams.has("token");
   if (user && isAuthRoute && !(path.startsWith("/register") && hasToken)) {
     const redirectUrl = request.nextUrl.clone();
@@ -73,13 +66,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for:
-     *   - _next/static       (static assets)
-     *   - _next/image        (image optimization files)
-     *   - favicon.*          (favicon files)
-     *   - public assets      (*.svg, *.png, *.jpg, *.jpeg, *.gif, *.webp, *.ico)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Only run on dashboard + auth routes — skip everything else.
+    "/dashboard/:path*",
+    "/login",
+    "/register/:path*",
   ],
 };

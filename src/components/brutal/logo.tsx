@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
  * BrutalLogo — the CampusOS wordmark.
  *
- * A thick-bordered emerald square with the "C" + wordmark. Used in the sidebar,
- * landing hero, and auth pages.
+ * Uses the uploaded logo image (/logo.png) instead of a placeholder "C" box.
  */
 export function BrutalLogo({
   className,
@@ -20,24 +20,22 @@ export function BrutalLogo({
   asLink?: boolean;
 }) {
   const sizes = {
-    sm: { box: "h-8 w-8", text: "text-lg", pad: "p-1.5" },
-    md: { box: "h-10 w-10", text: "text-xl", pad: "p-2" },
-    lg: { box: "h-14 w-14", text: "text-3xl", pad: "p-3" },
+    sm: { img: 28, text: "text-lg" },
+    md: { img: 36, text: "text-xl" },
+    lg: { img: 48, text: "text-3xl" },
   } as const;
   const s = sizes[size];
 
   const inner = (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <div
-        className={cn(
-          "flex items-center justify-center rounded-xl border-2 border-slate-900 bg-emerald-500 font-black text-slate-900 shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]",
-          s.box,
-          s.pad,
-          s.text
-        )}
-      >
-        C
-      </div>
+      <Image
+        src="/logo.png"
+        alt="CampusOS Logo"
+        width={s.img}
+        height={s.img}
+        className="rounded-lg border-2 border-slate-900 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]"
+        priority
+      />
       <span
         className={cn(
           "font-black uppercase tracking-tight text-slate-900",
@@ -60,8 +58,7 @@ export function BrutalLogo({
 }
 
 /**
- * BrutalCard — a higher-impact variant of the shadcn Card for marketing pages.
- * Supports an `accent` color on the top edge.
+ * BrutalAccent — a higher-impact variant of the shadcn Card for marketing pages.
  */
 export function BrutalAccent({
   color = "bg-emerald-500",

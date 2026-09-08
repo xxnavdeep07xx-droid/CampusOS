@@ -23,6 +23,7 @@ import { BrutalLogo } from "@/components/brutal/logo";
 import { GlobalNoticeBanner } from "@/components/brutal/global-notice-banner";
 import { signOutAction } from "@/app/login/actions";
 import type { Profile, UserRole, GlobalNotice } from "@/lib/types";
+import Image from "next/image";
 
 /**
  * DashboardLayout — the authenticated app shell.
@@ -53,119 +54,124 @@ export default async function DashboardLayout({
     .eq("id", user.id)
     .single();
 
-  const { data: school } = await supabase
-    .from("schools")
-    .select("id, name, principal_id")
-    .eq("id", (profile as Profile | null)?.school_id ?? "")
-    .single();
+  // Fetch profile, school, and notices in parallel for performance.
+  const schoolId = (profile as Profile | null)?.school_id ?? "";
 
+  const [
+    { data: school },
+    { data: noticeRows },
+  ] = await Promise.all([
+    schoolId
+      ? supabase.from("schools").select("id, name, principal_id").eq("id", schoolId).single()
+      : Promise.resolve({ data: null }),
+    schoolId
+      ? supabase
+          .from("global_notices")
+          .select("*")
+          .eq("school_id", schoolId)
+          .eq("is_active", true)
+          .lte("publish_date", new Date().toISOString().slice(0, 10))
+          .order("publish_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(5)
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const notices = (noticeRows ?? []) as unknown as GlobalNotice[];
   const role: UserRole | null = (profile as Profile | null)?.role ?? null;
-
-  // Fetch active global notices for the banner. Best-effort — if the Phase 6
-  // migration isn't applied yet, notices will just be empty (the banner
-  // renders null).
-  let notices: GlobalNotice[] = [];
-  if ((profile as Profile | null)?.school_id) {
-    const { data: noticeRows } = await supabase
-      .from("global_notices")
-      .select("*")
-      .eq("school_id", (profile as Profile | null)!.school_id!)
-      .eq("is_active", true)
-      .lte("publish_date", new Date().toISOString().slice(0, 10))
-      .order("publish_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(5);
-    notices = (noticeRows ?? []) as unknown as GlobalNotice[];
-  }
 
   // Build the nav based on role.
   const nav = buildNav(role);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FDFBF7]">
+    <div className="flex h-screen flex-col bg-[#FDFBF7] overflow-hidden">
       {/* Global notice banner — at the very top, above the sidebar */}
       <GlobalNoticeBanner notices={notices} />
 
-      <div className="flex flex-1 flex-col md:flex-row">
-        {/* Sidebar */}
-        <aside className="flex w-full shrink-0 flex-col border-b-[3px] border-slate-900 bg-slate-900 text-[#FDFBF7] md:w-64 md:border-b-0 md:border-r-[3px]">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar — fixed, scrolls independently */}
+        <aside className="flex w-64 shrink-0 flex-col overflow-y-auto border-r-[3px] border-slate-900 bg-slate-900 text-[#FDFBF7]">
           <div className="px-5 py-5">
             <Link href="/" className="inline-flex">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-9 items-center justify-center rounded-xl border-2 border-[#FDFBF7] bg-emerald-500 font-black text-slate-900 shadow-[3px_3px_0px_0px_rgba(253,251,247,0.4)]">
-                  C
-                </div>
-                <span className="text-lg font-black uppercase tracking-tight">
+                <Image
+                  src="/logo.png"
+                  alt="CampusOS"
+                  width={36}
+                  height={36}
+                  className="rounded-lg border-2 border-[#FDFBF7] shadow-[2px_2px_0px_0px_rgba(253,251,247,0.3)]"
+                  priority
+                />
+                <span className="text-lg font-black uppercase tracking-tight text-[#FDFBF7]">
                   Campus<span className="text-emerald-400">OS</span>
                 </span>
               </div>
             </Link>
           </div>
 
-        <div className="mx-3 mb-3 rounded-xl border-2 border-[#FDFBF7]/30 bg-slate-800 px-3 py-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            School
-          </div>
-          <div className="mt-0.5 truncate text-sm font-bold text-[#FDFBF7]">
-            {school?.name ?? "—"}
-          </div>
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-1 px-3">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="group flex items-center gap-3 rounded-lg border-2 border-transparent px-3 py-2 text-sm font-bold uppercase tracking-wider text-slate-300 transition-all hover:border-[#FDFBF7] hover:bg-slate-800 hover:text-[#FDFBF7]"
-            >
-              <item.icon className="size-4" strokeWidth={2.5} />
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="border-t-2 border-slate-800 px-3 py-3">
-          <div className="rounded-xl border-2 border-[#FDFBF7]/20 bg-slate-800 px-3 py-2.5">
+          <div className="mx-3 mb-3 rounded-xl border-2 border-[#FDFBF7]/30 bg-slate-800 px-3 py-2.5">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Signed in as
+              School
             </div>
             <div className="mt-0.5 truncate text-sm font-bold text-[#FDFBF7]">
-              {(profile as Profile | null)?.full_name || user.email}
-            </div>
-            <div className="mt-1 inline-flex rounded-full border-2 border-[#FDFBF7]/30 bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400">
-              {role ?? "no role"}
+              {school?.name ?? "—"}
             </div>
           </div>
 
-          <form action={signOutAction} className="mt-2">
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 rounded-lg border-2 border-[#FDFBF7]/30 bg-slate-800 px-3 py-2 text-xs font-bold uppercase tracking-wider text-[#FDFBF7] transition-all hover:border-rose-400 hover:bg-rose-500 hover:text-slate-900"
-            >
-              <LogOut className="size-4" />
-              Sign out
-            </button>
-          </form>
-        </div>
-      </aside>
+          <nav className="flex flex-1 flex-col gap-1 px-3">
+            {nav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group flex items-center gap-3 rounded-lg border-2 border-transparent px-3 py-2 text-sm font-bold uppercase tracking-wider text-slate-300 transition-all hover:border-[#FDFBF7] hover:bg-slate-800 hover:text-[#FDFBF7]"
+              >
+                <item.icon className="size-4" strokeWidth={2.5} />
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </nav>
 
-      {/* Content */}
-      <div className="flex-1 overflow-x-hidden">
-        <div className="border-b-[3px] border-slate-900 bg-[#FDFBF7]">
-          <div className="flex items-center justify-between px-5 py-4 md:px-8">
-            <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-emerald-500" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                Dashboard
-              </span>
+          <div className="border-t-2 border-slate-800 px-3 py-3">
+            <div className="rounded-xl border-2 border-[#FDFBF7]/20 bg-slate-800 px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Signed in as
+              </div>
+              <div className="mt-0.5 truncate text-sm font-bold text-[#FDFBF7]">
+                {(profile as Profile | null)?.full_name || user.email}
+              </div>
+              <div className="mt-1 inline-flex rounded-full border-2 border-[#FDFBF7]/30 bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                {role ?? "no role"}
+              </div>
             </div>
-            <div className="md:hidden">
-              <BrutalLogo size="sm" asLink={false} />
+
+            <form action={signOutAction} className="mt-2">
+              <button
+                type="submit"
+                className="flex w-full items-center gap-2 rounded-lg border-2 border-[#FDFBF7]/30 bg-slate-800 px-3 py-2 text-xs font-bold uppercase tracking-wider text-[#FDFBF7] transition-all hover:border-rose-400 hover:bg-rose-500 hover:text-slate-900"
+              >
+                <LogOut className="size-4" />
+                Sign out
+              </button>
+            </form>
+          </div>
+        </aside>
+
+        {/* Content — scrolls independently from the sidebar */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="border-b-[3px] border-slate-900 bg-[#FDFBF7]">
+            <div className="flex items-center justify-between px-5 py-3 md:px-8">
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-emerald-500" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Dashboard
+                </span>
+              </div>
             </div>
           </div>
+          <div className="flex-1 overflow-y-auto px-5 py-6 md:px-8 md:py-8">
+            {children}
+          </div>
         </div>
-        <div className="px-5 py-8 md:px-8 md:py-10">{children}</div>
-      </div>
       </div>
     </div>
   );
