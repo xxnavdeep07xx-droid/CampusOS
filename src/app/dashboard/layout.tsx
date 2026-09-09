@@ -21,7 +21,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { getCachedProfile, getCachedSchool, getCachedNotices } from "@/lib/cached-queries";
 import { GlobalNoticeBanner } from "@/components/brutal/global-notice-banner";
-import { DashboardNav } from "@/components/brutal/dashboard-nav";
+import { ResponsiveSidebar } from "@/components/brutal/responsive-sidebar";
 import { signOutAction } from "@/app/login/actions";
 import type { Profile, UserRole, GlobalNotice } from "@/lib/types";
 import Image from "next/image";
@@ -65,54 +65,16 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen flex-col bg-[#FDFBF7] overflow-hidden">
-      {/* Global notice banner — at the very top, above the sidebar */}
+      {/* Global notice banner */}
       <GlobalNoticeBanner notices={notices} />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar — fixed, scrolls independently */}
-        <aside className="flex w-64 shrink-0 flex-col overflow-y-auto border-r-[3px] border-slate-900 bg-slate-900 text-[#FDFBF7]">
-          <div className="px-5 py-5">
-            <Link href="/" className="inline-flex">
-              <div className="flex items-center gap-2.5">
-                <Image
-                  src="/logo.png"
-                  alt="CampusOS"
-                  width={36}
-                  height={36}
-                  className="rounded-lg border-2 border-[#FDFBF7] shadow-[2px_2px_0px_0px_rgba(253,251,247,0.3)]"
-                  priority
-                />
-                <span className="text-lg font-black uppercase tracking-tight text-[#FDFBF7]">
-                  Campus<span className="text-emerald-400">OS</span>
-                </span>
-              </div>
-            </Link>
-          </div>
-
-          <div className="mx-3 mb-3 rounded-xl border-2 border-[#FDFBF7]/30 bg-slate-800 px-3 py-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              School
-            </div>
-            <div className="mt-0.5 truncate text-sm font-bold text-[#FDFBF7]">
-              {school?.name ?? "—"}
-            </div>
-          </div>
-
-          <DashboardNav nav={nav} />
-
-          <div className="border-t-2 border-slate-800 px-3 py-3">
-            <div className="rounded-xl border-2 border-[#FDFBF7]/20 bg-slate-800 px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Signed in as
-              </div>
-              <div className="mt-0.5 truncate text-sm font-bold text-[#FDFBF7]">
-                {(profile as Profile | null)?.full_name || user.email}
-              </div>
-              <div className="mt-1 inline-flex rounded-full border-2 border-[#FDFBF7]/30 bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                {role ?? "no role"}
-              </div>
-            </div>
-
+        <ResponsiveSidebar
+          nav={nav}
+          schoolName={school?.name ?? null}
+          userName={(profile as Profile | null)?.full_name || user.email ?? ""}
+          role={role}
+          signOutForm={
             <form action={signOutAction} className="mt-2">
               <button
                 type="submit"
@@ -122,12 +84,12 @@ export default async function DashboardLayout({
                 Sign out
               </button>
             </form>
-          </div>
-        </aside>
+          }
+        />
 
-        {/* Content — scrolls independently from the sidebar */}
+        {/* Content — scrolls independently */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="border-b-[3px] border-slate-900 bg-[#FDFBF7]">
+          <div className="hidden border-b-[3px] border-slate-900 bg-[#FDFBF7] md:block">
             <div className="flex items-center justify-between px-5 py-3 md:px-8">
               <div className="flex items-center gap-2">
                 <span className="size-2 rounded-full bg-emerald-500" />
@@ -137,9 +99,9 @@ export default async function DashboardLayout({
               </div>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-6 md:px-8 md:py-8">
+          <main className="flex-1 overflow-y-auto px-5 py-6 md:px-8 md:py-8">
             {children}
-          </div>
+          </main>
         </div>
       </div>
     </div>
