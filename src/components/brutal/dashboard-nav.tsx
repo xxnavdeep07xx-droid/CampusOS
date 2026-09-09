@@ -3,23 +3,57 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import type { LucideIcon } from "lucide-react";
+import {
+  BarChart3,
+  Building2,
+  Bus,
+  CalendarCheck,
+  CalendarDays,
+  ClipboardList,
+  DollarSign,
+  GraduationCap,
+  LayoutDashboard,
+  Library,
+  Megaphone,
+  UserCog,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
 /**
- * DashboardNav — the sidebar navigation with active-state highlighting.
- *
- * The currently selected route is highlighted with an emerald border +
- * emerald background so the user always knows where they are.
+ * Icon name → Lucide component mapping.
+ * The server component passes icon names as strings (serializable),
+ * and the client component maps them back to the actual components.
  */
-export function DashboardNav({
-  nav,
-}: {
-  nav: Array<{ href: string; label: string; icon: LucideIcon }>;
-}) {
+const ICON_MAP: Record<string, LucideIcon> = {
+  BarChart3,
+  Building2,
+  Bus,
+  CalendarCheck,
+  CalendarDays,
+  ClipboardList,
+  DollarSign,
+  GraduationCap,
+  LayoutDashboard,
+  Library,
+  Megaphone,
+  UserCog,
+  Users,
+};
+
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: string; // icon name, not the component itself
+};
+
+/**
+ * DashboardNav — sidebar navigation with active-state highlighting.
+ */
+export function DashboardNav({ nav }: { nav: NavItem[] }) {
   const pathname = usePathname();
 
   function isActive(href: string): boolean {
-    // Exact match for /dashboard, starts-with for everything else.
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   }
@@ -28,7 +62,7 @@ export function DashboardNav({
     <nav className="flex flex-1 flex-col gap-1 px-3">
       {nav.map((item) => {
         const active = isActive(item.href);
-        const Icon = item.icon;
+        const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
         return (
           <Link
             key={item.href}

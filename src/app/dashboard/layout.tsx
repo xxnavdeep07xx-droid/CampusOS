@@ -151,48 +151,48 @@ function buildNav(role: UserRole | null) {
     {
       href: "/dashboard",
       label: "Overview",
-      icon: LayoutDashboard,
+      icon: "LayoutDashboard" as const,
     },
   ];
 
   if (role === "principal" || role === "staff") {
     return [
       ...common,
-      { href: "/dashboard/staff", label: "Staff & Teachers", icon: Users },
-      { href: "/dashboard/classes", label: "All Classes", icon: Building2 },
-      { href: "/dashboard/admin/fees", label: "Fees", icon: DollarSign },
-      { href: "/dashboard/admin/notices", label: "Notices", icon: Megaphone },
-      { href: "/dashboard/admin/library", label: "Library", icon: Library },
-      { href: "/dashboard/admin/hr", label: "HR / Leave", icon: ClipboardList },
-      { href: "/dashboard/admin/transport", label: "Transport", icon: Bus },
-      { href: "/dashboard/teacher/schedule", label: "School Schedule", icon: CalendarDays },
+      { href: "/dashboard/staff", label: "Staff & Teachers", icon: "Users" as const },
+      { href: "/dashboard/classes", label: "All Classes", icon: "Building2" as const },
+      { href: "/dashboard/admin/fees", label: "Fees", icon: "DollarSign" as const },
+      { href: "/dashboard/admin/notices", label: "Notices", icon: "Megaphone" as const },
+      { href: "/dashboard/admin/library", label: "Library", icon: "Library" as const },
+      { href: "/dashboard/admin/hr", label: "HR / Leave", icon: "ClipboardList" as const },
+      { href: "/dashboard/admin/transport", label: "Transport", icon: "Bus" as const },
+      { href: "/dashboard/teacher/schedule", label: "School Schedule", icon: "CalendarDays" as const },
     ];
   }
   if (role === "teacher") {
     return [
       ...common,
-      { href: "/dashboard/teacher", label: "My Classes", icon: GraduationCap },
-      { href: "/dashboard/teacher/schedule", label: "My Schedule", icon: CalendarDays },
-      { href: "/dashboard/teacher/leave", label: "Leave Requests", icon: ClipboardList },
-      { href: "/dashboard/students", label: "My Students", icon: UserCog },
+      { href: "/dashboard/teacher", label: "My Classes", icon: "GraduationCap" as const },
+      { href: "/dashboard/teacher/schedule", label: "My Schedule", icon: "CalendarDays" as const },
+      { href: "/dashboard/teacher/leave", label: "Leave Requests", icon: "ClipboardList" as const },
+      { href: "/dashboard/students", label: "My Students", icon: "UserCog" as const },
     ];
   }
   if (role === "student") {
     return [
       ...common,
-      { href: "/dashboard/classes", label: "My Class", icon: Building2 },
-      { href: "/dashboard/library", label: "Library", icon: Library },
-      { href: "/dashboard/transport", label: "Transport", icon: Bus },
-      { href: "/dashboard/attendance", label: "My Attendance", icon: CalendarCheck },
-      { href: "/dashboard/schedule", label: "My Schedule", icon: CalendarDays },
-      { href: "/dashboard/grades", label: "My Grades", icon: BarChart3 },
+      { href: "/dashboard/classes", label: "My Class", icon: "Building2" as const },
+      { href: "/dashboard/library", label: "Library", icon: "Library" as const },
+      { href: "/dashboard/transport", label: "Transport", icon: "Bus" as const },
+      { href: "/dashboard/attendance", label: "My Attendance", icon: "CalendarCheck" as const },
+      { href: "/dashboard/schedule", label: "My Schedule", icon: "CalendarDays" as const },
+      { href: "/dashboard/grades", label: "My Grades", icon: "BarChart3" as const },
     ];
   }
   if (role === "parent") {
     return [
       ...common,
-      { href: "/dashboard/parent", label: "My Children", icon: Users },
-      { href: "/dashboard/parent/fees", label: "Fees & Payments", icon: DollarSign },
+      { href: "/dashboard/parent", label: "My Children", icon: "Users" as const },
+      { href: "/dashboard/parent/fees", label: "Fees & Payments", icon: "DollarSign" as const },
     ];
   }
   return common;
