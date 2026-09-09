@@ -21,6 +21,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { getCachedProfile, getCachedSchool, getCachedNotices } from "@/lib/cached-queries";
 import { GlobalNoticeBanner } from "@/components/brutal/global-notice-banner";
+import { DashboardNav } from "@/components/brutal/dashboard-nav";
 import { signOutAction } from "@/app/login/actions";
 import type { Profile, UserRole, GlobalNotice } from "@/lib/types";
 import Image from "next/image";
@@ -97,18 +98,7 @@ export default async function DashboardLayout({
             </div>
           </div>
 
-          <nav className="flex flex-1 flex-col gap-1 px-3">
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group flex items-center gap-3 rounded-lg border-2 border-transparent px-3 py-2 text-sm font-bold uppercase tracking-wider text-slate-300 transition-all hover:border-[#FDFBF7] hover:bg-slate-800 hover:text-[#FDFBF7]"
-              >
-                <item.icon className="size-4" strokeWidth={2.5} />
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </nav>
+          <DashboardNav nav={nav} />
 
           <div className="border-t-2 border-slate-800 px-3 py-3">
             <div className="rounded-xl border-2 border-[#FDFBF7]/20 bg-slate-800 px-3 py-2.5">
