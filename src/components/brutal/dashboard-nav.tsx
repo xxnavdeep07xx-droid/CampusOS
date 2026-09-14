@@ -49,13 +49,32 @@ export type NavItem = {
 
 /**
  * DashboardNav — sidebar navigation with active-state highlighting.
+ *
+ * NOTE: This component is currently NOT used in the app (the layout uses
+ * ResponsiveSidebar instead). It is kept here for the NavItem type export.
+ * The isActive logic below mirrors ResponsiveSidebar's so the two stay
+ * consistent if anyone re-introduces this component.
  */
 export function DashboardNav({ nav }: { nav: NavItem[] }) {
   const pathname = usePathname();
 
+  // Find the single most-specific (longest) nav item whose href matches the
+  // pathname exactly OR is a parent prefix of it. Only that one item is
+  // considered active. This avoids the double-highlight bug where both a
+  // parent (e.g. "/dashboard") and its child (e.g. "/dashboard/teacher")
+  // light up at the same time.
+  const activeHref = (() => {
+    let best = "";
+    for (const item of nav) {
+      if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        if (item.href.length > best.length) best = item.href;
+      }
+    }
+    return best;
+  })();
+
   function isActive(href: string): boolean {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
+    return href !== "" && href === activeHref;
   }
 
   return (
