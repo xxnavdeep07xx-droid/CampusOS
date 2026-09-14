@@ -111,16 +111,6 @@ export default async function DashboardLayout({
 
         {/* Content — scrolls independently */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="hidden border-b-[3px] border-slate-900 bg-[#FDFBF7] md:block">
-            <div className="flex items-center justify-between px-5 py-3 md:px-8">
-              <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-emerald-500" />
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Dashboard
-                </span>
-              </div>
-            </div>
-          </div>
           <main className="flex-1 overflow-y-auto px-5 py-6 md:px-8 md:py-8">
             {children}
           </main>
