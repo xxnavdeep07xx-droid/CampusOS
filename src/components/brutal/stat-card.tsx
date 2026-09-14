@@ -3,8 +3,6 @@ import { getIcon } from "@/lib/lucide-icons";
 
 /**
  * StatCard — large chunky card for dashboards.
- *
- * Accepts icon as a string name (serializable for server→client).
  * `size`: "lg" (default) for principal dashboard, "sm" for staff list.
  */
 export function StatCard({
@@ -25,7 +23,6 @@ export function StatCard({
   className?: string;
 }) {
   const isSm = size === "sm";
-  const iconClass = isSm ? "size-3.5" : "size-5";
   const Icon = getIcon(iconName);
 
   return (
@@ -54,7 +51,7 @@ export function StatCard({
             "flex items-center justify-center rounded-xl border-2 border-slate-900 bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]",
             isSm ? "size-7" : "size-10"
           )}>
-            {Icon({ className: iconClass, strokeWidth: 2.5 })}
+            <Icon className={isSm ? "size-3.5 text-slate-900" : "size-5 text-slate-900"} strokeWidth={2.5} />
           </div>
         </div>
 
