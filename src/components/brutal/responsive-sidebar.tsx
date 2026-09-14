@@ -4,31 +4,10 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  BarChart3,
-  Building2,
-  Bus,
-  CalendarCheck,
-  CalendarDays,
-  ClipboardList,
-  DollarSign,
-  GraduationCap,
-  LayoutDashboard,
-  Library,
-  Megaphone,
-  UserCog,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { getIcon } from "@/lib/lucide-icons";
 import type { NavItem } from "@/components/brutal/dashboard-nav";
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  BarChart3, Building2, Bus, CalendarCheck, CalendarDays,
-  ClipboardList, DollarSign, GraduationCap, LayoutDashboard,
-  Library, Megaphone, UserCog, Users,
-};
 
 export function ResponsiveSidebar({
   nav,
@@ -92,7 +71,7 @@ export function ResponsiveSidebar({
       <nav className="flex flex-1 flex-col gap-1 px-3 overflow-y-auto">
         {nav.map((item) => {
           const active = isActive(item.href);
-          const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
+          const Icon = getIcon(item.icon);
           return (
             <Link
               key={item.href}

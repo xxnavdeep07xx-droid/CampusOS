@@ -16,6 +16,7 @@ import { Tag } from "@/components/brutal/section";
 import { StatCard } from "@/components/brutal/stat-card";
 import { InviteCard } from "@/components/brutal/invite-card";
 import type { Profile, School, Invitation, UserRole } from "@/lib/types";
+import { roleColor } from "@/lib/types";
 
 export default async function PrincipalDashboardPage() {
   const supabase = await createClient();
@@ -258,13 +259,6 @@ function InviteListItem({
   isUsed: boolean;
   createdAt: string;
 }) {
-  const roleColor: Record<UserRole, string> = {
-    principal: "bg-slate-900 text-[#FDFBF7]",
-    staff: "bg-sky-300 text-slate-900",
-    teacher: "bg-violet-300 text-slate-900",
-    student: "bg-rose-300 text-slate-900",
-  };
-
   return (
     <Card className="brutal-hover">
       <CardContent className="flex items-center justify-between gap-3 py-4">
@@ -272,7 +266,7 @@ function InviteListItem({
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className={`capitalize ${roleColor[role]}`}
+              className={`capitalize ${roleColor(role)}`}
             >
               {role}
             </Badge>

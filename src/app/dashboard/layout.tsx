@@ -81,8 +81,9 @@ export default async function DashboardLayout({
   const notices = (noticeRows ?? []) as unknown as GlobalNotice[];
   const role: UserRole | null = (profile as Profile | null)?.role ?? null;
 
-  // Build the nav based on role.
-  const nav = buildNav(role);
+  // Build the nav based on role + staff sub-role.
+  const staffRole = (profile as Profile & { staff_role?: string | null } | null)?.staff_role ?? null;
+  const nav = buildNav(role, staffRole);
 
   return (
     <div className="flex h-screen flex-col bg-[#FDFBF7] overflow-hidden">
@@ -129,7 +130,7 @@ export default async function DashboardLayout({
   );
 }
 
-function buildNav(role: UserRole | null) {
+function buildNav(role: UserRole | null, staffRole?: string | null) {
   const common = [
     {
       href: "/dashboard",
@@ -138,7 +139,8 @@ function buildNav(role: UserRole | null) {
     },
   ];
 
-  if (role === "principal" || role === "staff") {
+  // Principal gets the full admin nav.
+  if (role === "principal") {
     return [
       ...common,
       { href: "/dashboard/staff", label: "Staff & Teachers", icon: "Users" as const },
@@ -150,6 +152,39 @@ function buildNav(role: UserRole | null) {
       { href: "/dashboard/admin/transport", label: "Transport", icon: "Bus" as const },
       { href: "/dashboard/teacher/schedule", label: "School Schedule", icon: "CalendarDays" as const },
     ];
+  }
+
+  // Staff members get personalized navs based on their sub-role.
+  if (role === "staff") {
+    const base = [...common, { href: "/dashboard/classes", label: "All Classes", icon: "Building2" as const }];
+    switch (staffRole) {
+      case "librarian":
+        return [
+          ...common,
+          { href: "/dashboard/admin/library", label: "Library", icon: "Library" as const },
+          { href: "/dashboard/library", label: "Catalog", icon: "Library" as const },
+        ];
+      case "accountant":
+        return [
+          ...common,
+          { href: "/dashboard/admin/fees", label: "Fees", icon: "DollarSign" as const },
+          { href: "/dashboard/staff", label: "Students", icon: "Users" as const },
+        ];
+      case "hr_clerk":
+        return [
+          ...common,
+          { href: "/dashboard/admin/hr", label: "HR / Leave", icon: "ClipboardList" as const },
+          { href: "/dashboard/staff", label: "Staff & Teachers", icon: "Users" as const },
+        ];
+      case "transport_manager":
+        return [
+          ...common,
+          { href: "/dashboard/admin/transport", label: "Transport", icon: "Bus" as const },
+          { href: "/dashboard/staff", label: "Students", icon: "Users" as const },
+        ];
+      default: // "general" or null
+        return base;
+    }
   }
   if (role === "teacher") {
     return [

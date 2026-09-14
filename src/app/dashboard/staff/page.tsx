@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Users, UserCog, GraduationCap, Building2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tag } from "@/components/brutal/section";
+import { StatCard } from "@/components/brutal/stat-card";
 import type { Profile, ClassRoom, UserRole } from "@/lib/types";
+import { roleColor } from "@/lib/types";
 
 export default async function StaffListPage() {
   const supabase = await createClient();
@@ -55,13 +57,6 @@ export default async function StaffListPage() {
     teacherClassCount[c.teacher_id] = (teacherClassCount[c.teacher_id] ?? 0) + 1;
   }
 
-  const roleColor: Record<UserRole, string> = {
-    principal: "bg-slate-900 text-[#FDFBF7]",
-    staff: "bg-sky-300 text-slate-900",
-    teacher: "bg-violet-300 text-slate-900",
-    student: "bg-rose-300 text-slate-900",
-  };
-
   const counts = {
     staff: people.filter((p) => p.role === "staff").length,
     teacher: people.filter((p) => p.role === "teacher").length,
@@ -83,10 +78,10 @@ export default async function StaffListPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <MiniStat icon={<UserCog className="size-5" />} label="Staff" value={counts.staff} color="bg-sky-300" />
-        <MiniStat icon={<GraduationCap className="size-5" />} label="Teachers" value={counts.teacher} color="bg-violet-300" />
-        <MiniStat icon={<Users className="size-5" />} label="Students" value={counts.student} color="bg-rose-300" />
-        <MiniStat icon={<Building2 className="size-5" />} label="Classes" value={classes.length} color="bg-amber-300" />
+        <StatCard icon="UserCog" label="Staff" value={counts.staff} color="bg-sky-300" size="sm" />
+        <StatCard icon="GraduationCap" label="Teachers" value={counts.teacher} color="bg-violet-300" size="sm" />
+        <StatCard icon="Users" label="Students" value={counts.student} color="bg-rose-300" size="sm" />
+        <StatCard icon="Building2" label="Classes" value={classes.length} color="bg-amber-300" size="sm" />
       </div>
 
       <Card className="overflow-hidden">
@@ -130,7 +125,7 @@ export default async function StaffListPage() {
                   </div>
                   <Badge
                     variant="outline"
-                    className={`capitalize ${roleColor[p.role as UserRole]}`}
+                    className={`capitalize ${roleColor(p.role as UserRole)}`}
                   >
                     {p.role}
                   </Badge>
@@ -151,36 +146,5 @@ export default async function StaffListPage() {
         </Link>
       </p>
     </div>
-  );
-}
-
-function MiniStat({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <Card className="brutal-hover overflow-hidden">
-      <div className={`h-2 w-full border-x-2 border-t-2 border-slate-900 ${color}`} />
-      <CardContent className="pt-4">
-        <div className="flex items-center gap-2">
-          <div
-            className={`flex size-9 items-center justify-center rounded-lg border-2 border-slate-900 ${color} shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]`}
-          >
-            {icon}
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
-            {label}
-          </span>
-        </div>
-        <div className="mt-3 text-3xl font-black text-slate-900">{value}</div>
-      </CardContent>
-    </Card>
   );
 }

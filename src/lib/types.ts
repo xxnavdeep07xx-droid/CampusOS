@@ -724,3 +724,41 @@ export interface TransportStop {
 export interface TransportStopWithRoute extends TransportStop {
   route?: Pick<TransportRoute, "id" | "route_name" | "vehicle_number" | "driver_name" | "driver_phone"> | null;
 }
+
+// ============================================================
+// Staff sub-roles + shared helpers
+// ============================================================
+
+export type StaffRole =
+  | "librarian"
+  | "accountant"
+  | "hr_clerk"
+  | "transport_manager"
+  | "general";
+
+export const STAFF_ROLES: { value: StaffRole; label: string; icon: string; color: string }[] = [
+  { value: "librarian",         label: "Librarian",          icon: "Library",       color: "bg-violet-300" },
+  { value: "accountant",        label: "Accountant",         icon: "DollarSign",   color: "bg-emerald-300" },
+  { value: "hr_clerk",          label: "HR Clerk",           icon: "ClipboardList", color: "bg-amber-300" },
+  { value: "transport_manager", label: "Transport Manager",  icon: "Bus",          color: "bg-sky-300" },
+  { value: "general",           label: "General Staff",      icon: "Users",        color: "bg-slate-300" },
+];
+
+export function staffRoleLabel(sr?: string | null): string {
+  return STAFF_ROLES.find((r) => r.value === sr)?.label ?? "Staff";
+}
+
+export function staffRoleColor(sr?: string | null): string {
+  return STAFF_ROLES.find((r) => r.value === sr)?.color ?? "bg-slate-300";
+}
+
+/** Shared role → color map (was duplicated in 2 files). */
+export function roleColor(role: UserRole): string {
+  switch (role) {
+    case "principal": return "bg-slate-900 text-[#FDFBF7]";
+    case "staff":    return "bg-sky-300 text-slate-900";
+    case "teacher":  return "bg-violet-300 text-slate-900";
+    case "student":  return "bg-rose-300 text-slate-900";
+    case "parent":   return "bg-amber-300 text-slate-900";
+  }
+}

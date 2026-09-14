@@ -1,50 +1,11 @@
 import { cn } from "@/lib/utils";
-import {
-  BarChart3,
-  Building2,
-  Bus,
-  CalendarCheck,
-  CalendarDays,
-  DollarSign,
-  GraduationCap,
-  LayoutDashboard,
-  Library,
-  Megaphone,
-  TrendingDown,
-  TrendingUp,
-  UserCog,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { getIcon } from "@/lib/lucide-icons";
 
 /**
- * Icon name → Lucide component mapping (same pattern as DashboardNav).
- * Server components pass icon names as strings (serializable), and
- * StatCard maps them back to the actual components.
- */
-const ICON_MAP: Record<string, LucideIcon> = {
-  BarChart3,
-  Building2,
-  Bus,
-  CalendarCheck,
-  CalendarDays,
-  DollarSign,
-  GraduationCap,
-  LayoutDashboard,
-  Library,
-  Megaphone,
-  TrendingDown,
-  TrendingUp,
-  UserCog,
-  Users,
-};
-
-/**
- * StatCard — large chunky card for the principal's analytics dashboard.
+ * StatCard — large chunky card for dashboards.
  *
- * Now accepts `icon` as a string name (e.g. "TrendingUp") instead of the
- * actual Lucide component, to avoid passing non-serializable values from
- * server to client components.
+ * Accepts icon as a string name (serializable for server→client).
+ * `size`: "lg" (default) for principal dashboard, "sm" for staff list.
  */
 export function StatCard({
   icon: iconName,
@@ -52,18 +13,20 @@ export function StatCard({
   value,
   sublabel,
   color = "bg-amber-300",
+  size = "lg",
   className,
-  children,
 }: {
   icon: string;
   label: string;
   value: string | number;
   sublabel?: string;
   color?: string;
+  size?: "sm" | "lg";
   className?: string;
-  children?: React.ReactNode;
 }) {
-  const Icon = ICON_MAP[iconName] ?? LayoutDashboard;
+  const isSm = size === "sm";
+  const iconClass = isSm ? "size-3.5" : "size-5";
+  const Icon = getIcon(iconName);
 
   return (
     <div
@@ -73,7 +36,6 @@ export function StatCard({
         className
       )}
     >
-      {/* Decorative hatch overlay */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.08]"
@@ -83,27 +45,34 @@ export function StatCard({
         }}
       />
 
-      <div className="relative p-5 md:p-6">
+      <div className={cn("relative", isSm ? "p-3" : "p-5 md:p-6")}>
         <div className="flex items-start justify-between gap-3">
           <div className="text-[10px] font-black uppercase tracking-wider text-slate-900/80">
             {label}
           </div>
-          <div className="flex size-10 items-center justify-center rounded-xl border-2 border-slate-900 bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
-            <Icon className="size-5 text-slate-900" strokeWidth={2.5} />
+          <div className={cn(
+            "flex items-center justify-center rounded-xl border-2 border-slate-900 bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]",
+            isSm ? "size-7" : "size-10"
+          )}>
+            {Icon({ className: iconClass, strokeWidth: 2.5 })}
           </div>
         </div>
 
-        <div className="mt-3 text-4xl font-black uppercase leading-none tracking-tight text-slate-900 md:text-5xl">
+        <div className={cn(
+          "mt-3 font-black uppercase leading-none tracking-tight text-slate-900",
+          isSm ? "text-2xl" : "text-4xl md:text-5xl"
+        )}>
           {value}
         </div>
 
         {sublabel && (
-          <div className="mt-1.5 text-xs font-bold uppercase tracking-wider text-slate-800/70">
+          <div className={cn(
+            "mt-1.5 font-bold uppercase tracking-wider text-slate-800/70",
+            isSm ? "text-[9px]" : "text-xs"
+          )}>
             {sublabel}
           </div>
         )}
-
-        {children && <div className="mt-3">{children}</div>}
       </div>
     </div>
   );
