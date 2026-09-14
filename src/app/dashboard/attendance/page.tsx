@@ -121,7 +121,7 @@ export default async function StudentAttendancePage() {
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <StatCard
-              icon={CalendarCheck}
+              icon="CalendarCheck"
               label="Attendance rate"
               value={`${rate}%`}
               sublabel={`${present}/${total} days present`}
@@ -134,21 +134,21 @@ export default async function StudentAttendancePage() {
               }
             />
             <StatCard
-              icon={CalendarCheck}
+              icon="CalendarCheck"
               label="Days present"
               value={present}
               sublabel="Full marks"
               color="bg-emerald-300"
             />
             <StatCard
-              icon={CalendarCheck}
+              icon="CalendarCheck"
               label="Days late"
               value={late}
               sublabel="Arrived after start"
               color="bg-amber-300"
             />
             <StatCard
-              icon={CalendarCheck}
+              icon="CalendarCheck"
               label="Days absent"
               value={absent}
               sublabel="Missed class"

@@ -273,7 +273,7 @@ export default async function ParentPortalPage({
           {/* Academic + financial stats */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              icon={CalendarCheck}
+              icon="CalendarCheck"
               label="Attendance"
               value={attendanceRate == null ? "—" : `${attendanceRate}%`}
               sublabel={`${presentCount} present · ${absentCount} absent · ${lateCount} late`}
@@ -288,7 +288,7 @@ export default async function ParentPortalPage({
               }
             />
             <StatCard
-              icon={GraduationCap}
+              icon="GraduationCap"
               label="Gradebook avg"
               value={gradebookPct == null ? "—" : `${gradebookPct}%`}
               sublabel={gradebookPct == null ? "No grades yet" : "Across all assignments + quizzes"}
@@ -303,14 +303,14 @@ export default async function ParentPortalPage({
               }
             />
             <StatCard
-              icon={DollarSign}
+              icon="DollarSign"
               label="Pending dues"
               value={formatCurrency(totalOwed)}
               sublabel={`${pendingInvoices} unpaid invoice${pendingInvoices === 1 ? "" : "s"}`}
               color={pendingInvoices > 0 ? "bg-amber-400" : "bg-emerald-400"}
             />
             <StatCard
-              icon={Users}
+              icon="Users"
               label="Children linked"
               value={children.length}
               sublabel={children.length === 1 ? "1 child" : `${children.length} children`}

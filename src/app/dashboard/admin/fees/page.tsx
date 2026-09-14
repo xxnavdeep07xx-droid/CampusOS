@@ -154,21 +154,21 @@ export default async function FeeManagementPage() {
           {/* Revenue summary cards */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <StatCard
-              icon={TrendingUp}
+              icon="TrendingUp"
               label="Total Collected"
               value={formatCurrency(totalCollected)}
               sublabel="From paid invoices"
               color="bg-emerald-400"
             />
             <StatCard
-              icon={DollarSign}
+              icon="DollarSign"
               label="Pending Dues"
               value={formatCurrency(totalPending)}
               sublabel={`${pendingCount} pending invoice${pendingCount === 1 ? "" : "s"}`}
               color="bg-amber-300"
             />
             <StatCard
-              icon={TrendingDown}
+              icon="TrendingDown"
               label="Overdue"
               value={formatCurrency(totalOverdue)}
               sublabel={`${overdueCount} overdue invoice${overdueCount === 1 ? "" : "s"}`}

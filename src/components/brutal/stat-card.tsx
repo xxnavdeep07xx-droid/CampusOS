@@ -1,21 +1,53 @@
 import { cn } from "@/lib/utils";
-import type { LucideIcon } from "lucide-react";
+import {
+  BarChart3,
+  Building2,
+  Bus,
+  CalendarCheck,
+  CalendarDays,
+  DollarSign,
+  GraduationCap,
+  LayoutDashboard,
+  Library,
+  Megaphone,
+  TrendingDown,
+  TrendingUp,
+  UserCog,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+
+/**
+ * Icon name → Lucide component mapping (same pattern as DashboardNav).
+ * Server components pass icon names as strings (serializable), and
+ * StatCard maps them back to the actual components.
+ */
+const ICON_MAP: Record<string, LucideIcon> = {
+  BarChart3,
+  Building2,
+  Bus,
+  CalendarCheck,
+  CalendarDays,
+  DollarSign,
+  GraduationCap,
+  LayoutDashboard,
+  Library,
+  Megaphone,
+  TrendingDown,
+  TrendingUp,
+  UserCog,
+  Users,
+};
 
 /**
  * StatCard — large chunky card for the principal's analytics dashboard.
  *
- * Each card has a vibrant bg-* class (passed via `color`) + a thick black
- * border + hard offset shadow. The big number uses font-black uppercase.
- *
- * Suggested color values per the Phase 3 spec:
- *   - Yellow card for students (bg-amber-300)
- *   - Blue card for attendance (bg-sky-300)
- *   - Violet card for teachers (bg-violet-400)
- *   - Emerald card for classes (bg-emerald-400)
- *   - Coral card for low attendance alerts (bg-rose-400)
+ * Now accepts `icon` as a string name (e.g. "TrendingUp") instead of the
+ * actual Lucide component, to avoid passing non-serializable values from
+ * server to client components.
  */
 export function StatCard({
-  icon: Icon,
+  icon: iconName,
   label,
   value,
   sublabel,
@@ -23,7 +55,7 @@ export function StatCard({
   className,
   children,
 }: {
-  icon: LucideIcon;
+  icon: string;
   label: string;
   value: string | number;
   sublabel?: string;
@@ -31,6 +63,8 @@ export function StatCard({
   className?: string;
   children?: React.ReactNode;
 }) {
+  const Icon = ICON_MAP[iconName] ?? LayoutDashboard;
+
   return (
     <div
       className={cn(

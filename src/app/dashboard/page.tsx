@@ -128,28 +128,28 @@ export default async function PrincipalDashboardPage() {
       {/* Stat grid — vibrant chunky cards, one per Phase 3 spec color */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
         <StatCard
-          icon={Users}
+          icon="Users"
           label="Total Students"
           value={studentCount ?? 0}
           sublabel="Enrolled across all classes"
           color="bg-amber-300"
         />
         <StatCard
-          icon={GraduationCap}
+          icon="GraduationCap"
           label="Total Teachers"
           value={teacherCount ?? 0}
           sublabel="Active teaching staff"
           color="bg-violet-400"
         />
         <StatCard
-          icon={UserCog}
+          icon="UserCog"
           label="Staff"
           value={staffCount ?? 0}
           sublabel="Non-teaching staff"
           color="bg-sky-300"
         />
         <StatCard
-          icon={Building2}
+          icon="Building2"
           label="Classes"
           value={classCount ?? 0}
           sublabel="Across your school"
@@ -157,7 +157,7 @@ export default async function PrincipalDashboardPage() {
         />
         {/* Today's Attendance Rate widget (Phase 3) */}
         <StatCard
-          icon={CalendarCheck}
+          icon="CalendarCheck"
           label="Today's Attendance"
           value={attendanceRate !== null ? `${attendanceRate}%` : "—"}
           sublabel={
