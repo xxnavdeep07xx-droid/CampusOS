@@ -19,23 +19,22 @@ import {
   Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getCachedProfile, getCachedSchool, getCachedNotices } from "@/lib/cached-queries";
 import { GlobalNoticeBanner } from "@/components/brutal/global-notice-banner";
 import { ResponsiveSidebar } from "@/components/brutal/responsive-sidebar";
 import { signOutAction } from "@/app/login/actions";
 import type { Profile, UserRole, GlobalNotice } from "@/lib/types";
 import Image from "next/image";
 
-// Revalidate the layout every 30 seconds (stale-while-revalidate).
-export const revalidate = 30;
-
 /**
  * DashboardLayout — the authenticated app shell.
  *
- * Uses cached fetchers (getCachedProfile, getCachedSchool, getCachedNotices)
- * to reduce Supabase round-trips. The layout itself is revalidated every
- * 30s via Next.js ISR.
+ * This layout MUST be dynamic (not ISR) because it reads the user's session
+ * cookie via supabase.auth.getUser(). Do NOT add `export const revalidate`
+ * — it will cause serialization errors when Next.js tries to cache the
+ * rendered output (server actions + JSX elements can't be serialized for ISR).
  */
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -50,14 +49,37 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Use cached fetchers for profile + school + notices.
-  const profile = await getCachedProfile(user.id);
+  // Fetch profile, school, and notices in parallel for performance.
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  const profile = profileRow as Profile | null;
   const schoolId = profile?.school_id ?? "";
 
-  const [school, notices] = await Promise.all([
-    schoolId ? getCachedSchool(schoolId) : Promise.resolve(null),
-    schoolId ? getCachedNotices(schoolId) : Promise.resolve([] as GlobalNotice[]),
+  const [
+    { data: school },
+    { data: noticeRows },
+  ] = await Promise.all([
+    schoolId
+      ? supabase.from("schools").select("id, name, principal_id").eq("id", schoolId).single()
+      : Promise.resolve({ data: null }),
+    schoolId
+      ? supabase
+          .from("global_notices")
+          .select("*")
+          .eq("school_id", schoolId)
+          .eq("is_active", true)
+          .lte("publish_date", new Date().toISOString().slice(0, 10))
+          .order("publish_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(5)
+      : Promise.resolve({ data: null }),
   ]);
+
+  const notices = (noticeRows ?? []) as unknown as GlobalNotice[];
   const role: UserRole | null = (profile as Profile | null)?.role ?? null;
 
   // Build the nav based on role.
