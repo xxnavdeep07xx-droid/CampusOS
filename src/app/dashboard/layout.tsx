@@ -94,7 +94,7 @@ export default async function DashboardLayout({
         <ResponsiveSidebar
           nav={nav}
           schoolName={school?.name ?? null}
-          userName={(profile as Profile | null)?.full_name || user.email ?? ""}
+          userName={(profile as Profile | null)?.full_name || (user.email ?? "")}
           role={role}
           signOutForm={
             <form action={signOutAction} className="mt-2">
