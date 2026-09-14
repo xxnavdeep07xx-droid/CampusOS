@@ -32,8 +32,14 @@ export function ResponsiveSidebar({
   }
 
   function isActive(href: string): boolean {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
+    // Exact match for all items — prevents parent routes like
+    // /dashboard/teacher from being highlighted when on
+    // /dashboard/teacher/schedule.
+    if (pathname === href) return true;
+    // For folder-like routes, also match if pathname starts with href + "/"
+    // (so /dashboard/teacher matches /dashboard/teacher/123 but NOT
+    // /dashboard/teacher/schedule which is a separate nav item).
+    return pathname.startsWith(href + "/");
   }
 
   const sidebarContent = (
