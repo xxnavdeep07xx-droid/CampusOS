@@ -31,23 +31,26 @@ export function ResponsiveSidebar({
     setMobileOpen(false);
   }
 
-  function isActive(href: string): boolean {
-    // Exact match takes priority.
-    if (pathname === href) return true;
-    // For sub-routes (e.g. /dashboard/teacher/123), match the parent
-    // nav item — but ONLY if there's no other nav item that's a closer
-    // (more specific) match.
-    // Example: when on /dashboard/teacher/schedule, both /dashboard/teacher
-    // and /dashboard/teacher/schedule could match via startsWith. We only
-    // want the more specific one.
-    if (pathname.startsWith(href + "/")) {
-      // Check if any other nav item is a closer match.
-      const hasCloserMatch = nav.some(
-        (item) => item.href !== href && pathname.startsWith(item.href + "/") && item.href.length > href.length
-      );
-      return !hasCloserMatch;
+  // Find the most specific (longest) nav item whose href is either an exact
+  // match for the pathname OR a parent prefix of it (href + "/").
+  // Only that single most-specific item is considered active — this prevents
+  // parent items (e.g. "/dashboard" or "/dashboard/teacher") from also being
+  // highlighted when you're on a more specific child page like
+  // "/dashboard/teacher/schedule", AND prevents the parent from being
+  // highlighted when you're on its exact page (e.g. "/dashboard/teacher"
+  // should highlight only "My Classes", not also "Overview").
+  const activeHref = (() => {
+    let best = "";
+    for (const item of nav) {
+      if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        if (item.href.length > best.length) best = item.href;
+      }
     }
-    return false;
+    return best;
+  })();
+
+  function isActive(href: string): boolean {
+    return href !== "" && href === activeHref;
   }
 
   const sidebarContent = (
