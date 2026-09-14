@@ -32,14 +32,22 @@ export function ResponsiveSidebar({
   }
 
   function isActive(href: string): boolean {
-    // Exact match for all items — prevents parent routes like
-    // /dashboard/teacher from being highlighted when on
-    // /dashboard/teacher/schedule.
+    // Exact match takes priority.
     if (pathname === href) return true;
-    // For folder-like routes, also match if pathname starts with href + "/"
-    // (so /dashboard/teacher matches /dashboard/teacher/123 but NOT
-    // /dashboard/teacher/schedule which is a separate nav item).
-    return pathname.startsWith(href + "/");
+    // For sub-routes (e.g. /dashboard/teacher/123), match the parent
+    // nav item — but ONLY if there's no other nav item that's a closer
+    // (more specific) match.
+    // Example: when on /dashboard/teacher/schedule, both /dashboard/teacher
+    // and /dashboard/teacher/schedule could match via startsWith. We only
+    // want the more specific one.
+    if (pathname.startsWith(href + "/")) {
+      // Check if any other nav item is a closer match.
+      const hasCloserMatch = nav.some(
+        (item) => item.href !== href && pathname.startsWith(item.href + "/") && item.href.length > href.length
+      );
+      return !hasCloserMatch;
+    }
+    return false;
   }
 
   const sidebarContent = (
