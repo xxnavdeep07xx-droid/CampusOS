@@ -51,6 +51,7 @@ export function StatCard({
             "flex items-center justify-center rounded-xl border-2 border-slate-900 bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]",
             isSm ? "size-7" : "size-10"
           )}>
+            {/* eslint-disable-next-line react-hooks/static-components */}
             <Icon className={isSm ? "size-3.5 text-slate-900" : "size-5 text-slate-900"} strokeWidth={2.5} />
           </div>
         </div>
