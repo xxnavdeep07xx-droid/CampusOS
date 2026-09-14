@@ -23,7 +23,6 @@ import { GlobalNoticeBanner } from "@/components/brutal/global-notice-banner";
 import { ResponsiveSidebar } from "@/components/brutal/responsive-sidebar";
 import { signOutAction } from "@/app/login/actions";
 import type { Profile, UserRole, GlobalNotice } from "@/lib/types";
-import Image from "next/image";
 
 /**
  * DashboardLayout — the authenticated app shell.

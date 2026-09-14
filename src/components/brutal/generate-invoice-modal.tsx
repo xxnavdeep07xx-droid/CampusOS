@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, Receipt } from "lucide-react";
 import {
   Dialog,
@@ -32,20 +33,19 @@ import type { ClassRoom, Profile } from "@/lib/types";
  * Fields: title, description, total_amount, due_date, target (class|student).
  *
  * On submit → POST /api/invoices. If target is a class, the API creates
- * N invoices (one per student). Calls onCreated() on success so the
- * parent can refresh.
+ * N invoices (one per student). Uses router.refresh() on success
+ * so the server component re-fetches the invoice table.
  */
 export function GenerateInvoiceModal({
   schoolId,
   classes,
   students,
-  onCreated,
 }: {
   schoolId: string;
   classes: Pick<ClassRoom, "id" | "name">[];
   students: Pick<Profile, "id" | "full_name" | "class_id">[];
-  onCreated?: () => void;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [targetType, setTargetType] = useState<"class" | "student">("class");
   const [classId, setClassId] = useState("");
@@ -121,7 +121,7 @@ export function GenerateInvoiceModal({
       }
       setSuccess(true);
       setTimeout(() => {
-        onCreated?.();
+        router.refresh();
         close();
       }, 1200);
     } catch (err) {

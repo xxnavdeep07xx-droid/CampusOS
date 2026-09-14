@@ -185,9 +185,6 @@ export default async function FeeManagementPage() {
               schoolId={schoolId}
               classes={classes}
               students={students}
-              onCreated={() => {
-                /* server component — refresh handled by revalidate on next GET */
-              }}
             />
           </div>
 
