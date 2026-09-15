@@ -1,0 +1,899 @@
+     1→"use client";
+     2→
+     3→import { useCallback, useEffect, useRef, useState } from "react";
+     4→import {
+     5→  Brush,
+     6→  Circle as CircleIcon,
+     7→  Download,
+     8→  Eraser,
+     9→  Highlighter,
+    10→  Loader2,
+    11→  Minus,
+    12→  Pencil,
+    13→  Redo2,
+    14→  Square,
+    15→  Type,
+    16→  Undo2,
+    17→  Trash2,
+    18→  Upload,
+    19→  Grid3x3,
+    20→  AlignJustify,
+    21→  PanelsTopLeft,
+    22→} from "lucide-react";
+    23→import { Button } from "@/components/ui/button";
+    24→import { Input } from "@/components/ui/input";
+    25→import { Label } from "@/components/ui/label";
+    26→import { ToolButton, ToolDivider } from "@/components/brutal/tool-button";
+    27→import {
+    28→  Dialog,
+    29→  DialogContent,
+    30→  DialogDescription,
+    31→  DialogFooter,
+    32→  DialogHeader,
+    33→  DialogTitle,
+    34→} from "@/components/ui/dialog";
+    35→import type { WhiteboardTool, WhiteboardBackground } from "@/lib/types";
+    36→import { cn } from "@/lib/utils";
+    37→
+    38→/**
+    39→ * Whiteboard — full-screen digital board component.
+    40→ *
+    41→ * Architecture:
+    42→ *   - Two stacked canvases:
+    43→ *     - `bgCanvasRef`   — painted once per background-mode change
+    44→ *       (white / grid / lined / chalkboard). Static.
+    45→ *     - `drawCanvasRef` — receives pointer events + holds the persistent
+    46→ *       drawing. Cleared + redrawn on every pointermove during a shape draw.
+    47→ *   - `strokeBufferRef` — accumulates the in-progress stroke's points so we
+    48→ *     can render smooth lines via quadraticCurveTo.
+    49→ *   - `historyRef`      — array of ImageData snapshots (undo/redo stack).
+    50→ *     On every stroke commit we push a snapshot. Undo pops one back.
+    51→ *
+    52→ * Tools:
+    53→ *   - pen         — solid opaque strokes
+    54→ *   - highlighter — wide + low alpha
+    55→ *   - eraser      — uses destination-out composite to "erase" pixels
+    56→ *   - rectangle   — previewed live during drag
+    57→ *   - circle      — previewed live during drag
+    58→ *   - line        — previewed live during drag
+    59→ *   - text        — click-to-place; opens a small inline input
+    60→ *
+    61→ * Backgrounds:
+    62→ *   - white       — clean white
+    63→ *   - grid        — graph-paper grid
+    64→ *   - lined       — horizontal ruled lines
+    65→ *   - chalkboard  — dark green/black, stroke color auto-inverts to white
+    66→ *
+    67→ * Export:
+    68→ *   - "Export & Share with Class" button calls canvas.toDataURL('image/png')
+    69→ *     and POSTs it to /api/whiteboard/export (which uploads to class_materials
+    70→ *     and creates a resources row). Students don't see this button — they
+    71→ *     get a read-only board.
+    72→ */
+    73→const PEN_COLORS = [
+    74→  "#0f172a", // slate-900 (default ink)
+    75→  "#dc2626", // red
+    76→  "#f59e0b", // amber
+    77→  "#10b981", // emerald
+    78→  "#3b82f6", // blue
+    79→  "#8b5cf6", // violet
+    80→  "#ec4899", // pink
+    81→  "#ffffff", // white (for chalkboard mode)
+    82→];
+    83→
+    84→const PEN_WIDTHS = [2, 4, 8, 14];
+    85→const HIGHLIGHTER_WIDTHS = [10, 20, 30];
+    86→
+    87→export function Whiteboard({
+    88→  classId,
+    89→  className,
+    90→  canEdit = true,
+    91→}: {
+    92→  classId: string;
+    93→  className: string;
+    94→  canEdit?: boolean;
+    95→}) {
+    96→  const wrapRef = useRef<HTMLDivElement>(null);
+    97→  const bgCanvasRef = useRef<HTMLCanvasElement>(null);
+    98→  const drawCanvasRef = useRef<HTMLCanvasElement>(null);
+    99→
+   100→  const [tool, setTool] = useState<WhiteboardTool>("pen");
+   101→  const [color, setColor] = useState<string>(PEN_COLORS[0]);
+   102→  const [width, setWidth] = useState<number>(4);
+   103→  const [background, setBackground] = useState<WhiteboardBackground>("white");
+   104→
+   105→  // Drawing state.
+   106→  const strokeBufferRef = useRef<Array<[number, number]>>([]);
+   107→  const drawingRef = useRef(false);
+   108→  const shapeStartRef = useRef<[number, number] | null>(null);
+   109→
+   110→  // History stack (undo/redo). Each entry is a base64 PNG snapshot of the
+   111→  // drawCanvas. We keep up to 30 snapshots to bound memory.
+   112→  const historyRef = useRef<string[]>([]);
+   113→  const historyIdxRef = useRef<number>(-1);
+   114→  const [, forceRerender] = useState(0);
+   115→
+   116→  // Text-tool state.
+   117→  const [textInputAt, setTextInputAt] = useState<{ x: number; y: number } | null>(null);
+   118→  const [textInputValue, setTextInputValue] = useState("");
+   119→
+   120→  // Export state.
+   121→  const [exportOpen, setExportOpen] = useState(false);
+   122→  const [exportTitle, setExportTitle] = useState("");
+   123→  const [exporting, setExporting] = useState(false);
+   124→  const [exportError, setExportError] = useState<string | null>(null);
+   125→  const [exportSuccess, setExportSuccess] = useState(false);
+   126→
+   127→  // ----- Canvas sizing -----
+   128→  const resizeCanvases = useCallback(() => {
+   129→    const wrap = wrapRef.current;
+   130→    const bgCanvas = bgCanvasRef.current;
+   131→    const drawCanvas = drawCanvasRef.current;
+   132→    if (!wrap || !bgCanvas || !drawCanvas) return;
+   133→
+   134→    const dpr = window.devicePixelRatio || 1;
+   135→    const w = wrap.clientWidth;
+   136→    const h = wrap.clientHeight;
+   137→
+   138→    // Preserve the existing drawing across resizes: snapshot, resize, restore.
+   139→    const prevSnapshot = drawCanvas.toDataURL("image/png");
+   140→
+   141→    [bgCanvas, drawCanvas].forEach((c) => {
+   142→      c.width = Math.floor(w * dpr);
+   143→      c.height = Math.floor(h * dpr);
+   144→      c.style.width = `${w}px`;
+   145→      c.style.height = `${h}px`;
+   146→      const ctx = c.getContext("2d");
+   147→      if (ctx) ctx.scale(dpr, dpr);
+   148→    });
+   149→
+   150→    // Restore drawing (the bg canvas will be repainted separately).
+   151→    const drawCtx = drawCanvas.getContext("2d");
+   152→    if (drawCtx && prevSnapshot && prevSnapshot !== "data:,") {
+   153→      const img = new Image();
+   154→      img.onload = () => {
+   155→        drawCtx.drawImage(img, 0, 0, w, h);
+   156→      };
+   157→      img.src = prevSnapshot;
+   158→    }
+   159→
+   160→    paintBackground();
+   161→  }, []);
+   162→
+   163→  // ----- Background painting -----
+   164→  const paintBackground = useCallback(() => {
+   165→    const bg = bgCanvasRef.current;
+   166→    if (!bg) return;
+   167→    const ctx = bg.getContext("2d");
+   168→    if (!ctx) return;
+   169→
+   170→    const dpr = window.devicePixelRatio || 1;
+   171→    const w = bg.width / dpr;
+   172→    const h = bg.height / dpr;
+   173→
+   174→    ctx.clearRect(0, 0, w, h);
+   175→
+   176→    if (background === "white") {
+   177→      ctx.fillStyle = "#ffffff";
+   178→      ctx.fillRect(0, 0, w, h);
+   179→    } else if (background === "grid") {
+   180→      ctx.fillStyle = "#ffffff";
+   181→      ctx.fillRect(0, 0, w, h);
+   182→      ctx.strokeStyle = "#cbd5e1"; // slate-300
+   183→      ctx.lineWidth = 1;
+   184→      const step = 24;
+   185→      ctx.beginPath();
+   186→      for (let x = 0; x <= w; x += step) {
+   187→        ctx.moveTo(x + 0.5, 0);
+   188→        ctx.lineTo(x + 0.5, h);
+   189→      }
+   190→      for (let y = 0; y <= h; y += step) {
+   191→        ctx.moveTo(0, y + 0.5);
+   192→        ctx.lineTo(w, y + 0.5);
+   193→      }
+   194→      ctx.stroke();
+   195→    } else if (background === "lined") {
+   196→      ctx.fillStyle = "#ffffff";
+   197→      ctx.fillRect(0, 0, w, h);
+   198→      ctx.strokeStyle = "#cbd5e1";
+   199→      ctx.lineWidth = 1;
+   200→      const step = 28;
+   201→      ctx.beginPath();
+   202→      for (let y = step; y <= h; y += step) {
+   203→        ctx.moveTo(0, y + 0.5);
+   204→        ctx.lineTo(w, y + 0.5);
+   205→      }
+   206→      ctx.stroke();
+   207→    } else if (background === "chalkboard") {
+   208→      // Dark green chalkboard.
+   209→      ctx.fillStyle = "#14532d"; // green-900
+   210→      ctx.fillRect(0, 0, w, h);
+   211→      // Subtle texture via random light dots.
+   212→      ctx.fillStyle = "rgba(220, 252, 231, 0.04)";
+   213→      for (let i = 0; i < 400; i++) {
+   214→        const x = Math.random() * w;
+   215→        const y = Math.random() * h;
+   216→        ctx.fillRect(x, y, 1, 1);
+   217→      }
+   218→    }
+   219→  }, [background]);
+   220→
+   221→  // ----- Initial setup + resize observer -----
+   222→  useEffect(() => {
+   223→    resizeCanvases();
+   224→    const wrap = wrapRef.current;
+   225→    if (!wrap) return;
+   226→
+   227→    const ro = new ResizeObserver(() => resizeCanvases());
+   228→    ro.observe(wrap);
+   229→    return () => ro.disconnect();
+   230→  }, [resizeCanvases]);
+   231→
+   232→  // Repaint background whenever the mode changes.
+   233→  useEffect(() => {
+   234→    paintBackground();
+   235→  }, [paintBackground]);
+   236→
+   237→  // When switching to chalkboard, default the color to white (chalk).
+   238→  useEffect(() => {
+   239→    if (background === "chalkboard" && color === PEN_COLORS[0]) {
+   240→      setColor("#ffffff");
+   241→    }
+   242→    if (background !== "chalkboard" && color === "#ffffff") {
+   243→      setColor(PEN_COLORS[0]);
+   244→    }
+   245→  }, [background, color]);
+   246→
+   247→  // ----- History (undo/redo) -----
+   248→  const pushHistory = useCallback(() => {
+   249→    const canvas = drawCanvasRef.current;
+   250→    if (!canvas) return;
+   251→    // Drop any redo states (anything past the current index).
+   252→    historyRef.current = historyRef.current.slice(0, historyIdxRef.current + 1);
+   253→    historyRef.current.push(canvas.toDataURL("image/png"));
+   254→    // Cap the stack at 30 entries — drop the oldest.
+   255→    if (historyRef.current.length > 30) {
+   256→      historyRef.current.shift();
+   257→    } else {
+   258→      historyIdxRef.current++;
+   259→    }
+   260→    forceRerender((n) => n + 1);
+   261→  }, []);
+   262→
+   263→  const undo = useCallback(() => {
+   264→    if (historyIdxRef.current <= 0) return;
+   265→    historyIdxRef.current--;
+   266→    const snapshot = historyRef.current[historyIdxRef.current];
+   267→    restoreSnapshot(snapshot);
+   268→    forceRerender((n) => n + 1);
+   269→  }, []);
+   270→
+   271→  const redo = useCallback(() => {
+   272→    if (historyIdxRef.current >= historyRef.current.length - 1) return;
+   273→    historyIdxRef.current++;
+   274→    const snapshot = historyRef.current[historyIdxRef.current];
+   275→    restoreSnapshot(snapshot);
+   276→    forceRerender((n) => n + 1);
+   277→  }, []);
+   278→
+   279→  const restoreSnapshot = (dataUrl: string) => {
+   280→    const canvas = drawCanvasRef.current;
+   281→    if (!canvas) return;
+   282→    const ctx = canvas.getContext("2d");
+   283→    if (!ctx) return;
+   284→    const dpr = window.devicePixelRatio || 1;
+   285→    const w = canvas.width / dpr;
+   286→    const h = canvas.height / dpr;
+   287→    ctx.clearRect(0, 0, w, h);
+   288→    if (!dataUrl) return;
+   289→    const img = new Image();
+   290→    img.onload = () => ctx.drawImage(img, 0, 0, w, h);
+   291→    img.src = dataUrl;
+   292→  };
+   293→
+   294→  // Initialize history with one empty snapshot so undo never goes below 0.
+   295→  useEffect(() => {
+   296→    if (historyRef.current.length === 0) {
+   297→      const canvas = drawCanvasRef.current;
+   298→      if (canvas) {
+   299→        historyRef.current.push(canvas.toDataURL("image/png"));
+   300→        historyIdxRef.current = 0;
+   301→      }
+   302→    }
+   303→  }, []);
+   304→
+   305→  // ----- Pointer handlers -----
+   306→  const getCanvasPos = (e: React.PointerEvent<HTMLCanvasElement>): [number, number] => {
+   307→    const canvas = drawCanvasRef.current;
+   308→    if (!canvas) return [0, 0];
+   309→    const rect = canvas.getBoundingClientRect();
+   310→    return [e.clientX - rect.left, e.clientY - rect.top];
+   311→  };
+   312→
+   313→  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+   314→    if (!canEdit) return;
+   315→    if (e.button !== 0) return; // left-click only
+   316→    const canvas = drawCanvasRef.current;
+   317→    if (!canvas) return;
+   318→    canvas.setPointerCapture(e.pointerId);
+   319→
+   320→    const [x, y] = getCanvasPos(e);
+   321→
+   322→    if (tool === "text") {
+   323→      setTextInputAt({ x, y });
+   324→      setTextInputValue("");
+   325→      return;
+   326→    }
+   327→
+   328→    drawingRef.current = true;
+   329→    strokeBufferRef.current = [[x, y]];
+   330→    shapeStartRef.current = [x, y];
+   331→
+   332→    // For freehand tools, draw an initial dot so a single tap leaves a mark.
+   333→    if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
+   334→      const ctx = canvas.getContext("2d");
+   335→      if (ctx) {
+   336→        applyStrokeStyle(ctx);
+   337→        ctx.beginPath();
+   338→        ctx.arc(x, y, width / 2, 0, Math.PI * 2);
+   339→        ctx.fillStyle = color;
+   340→        if (tool === "eraser") {
+   341→          ctx.globalCompositeOperation = "destination-out";
+   342→          ctx.fillStyle = "#000";
+   343→        }
+   344→        if (tool === "highlighter") {
+   345→          ctx.globalAlpha = 0.35;
+   346→        }
+   347→        ctx.fill();
+   348→        ctx.globalAlpha = 1;
+   349→        ctx.globalCompositeOperation = "source-over";
+   350→      }
+   351→    }
+   352→  };
+   353→
+   354→  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+   355→    if (!canEdit || !drawingRef.current) return;
+   356→    const canvas = drawCanvasRef.current;
+   357→    if (!canvas) return;
+   358→    const ctx = canvas.getContext("2d");
+   359→    if (!ctx) return;
+   360→
+   361→    const [x, y] = getCanvasPos(e);
+   362→
+   363→    if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
+   364→      // Smooth freehand stroke using quadraticCurveTo between midpoints.
+   365→      const buf = strokeBufferRef.current;
+   366→      const prev = buf[buf.length - 1];
+   367→      const midX = (prev[0] + x) / 2;
+   368→      const midY = (prev[1] + y) / 2;
+   369→
+   370→      applyStrokeStyle(ctx);
+   371→      ctx.lineCap = "round";
+   372→      ctx.lineJoin = "round";
+   373→      ctx.beginPath();
+   374→      ctx.moveTo(prev[0], prev[1]);
+   375→      ctx.quadraticCurveTo(prev[0], prev[1], midX, midY);
+   376→      ctx.stroke();
+   377→
+   378→      buf.push([x, y]);
+   379→    } else if (tool === "rectangle" || tool === "circle" || tool === "line") {
+   380→      // Shape preview: snapshot the canvas before the drag started, then
+   381→      // restore + redraw the shape on every move. We snapshot on the
+   382→      // first move (when shapeStartRef is set + buffer is empty for shapes).
+   383→      const start = shapeStartRef.current;
+   384→      if (!start) return;
+   385→
+   386→      // Restore the snapshot from before this shape started.
+   387→      const preShapeSnapshot = historyRef.current[historyIdxRef.current];
+   388→      if (preShapeSnapshot) {
+   389→        const img = new Image();
+   390→        // Synchronous restore isn't possible with image load — but we can
+   391→        // clear + redraw on the next animation frame. For simplicity,
+   392→        // we'll clear the canvas and redraw the snapshot + the shape in
+   393→        // a single pass. Image load is async so we use a workaround:
+   394→        // we keep the in-progress shape on a separate compositing layer.
+   395→        // Simpler approach: use the bitmap from historyRef via drawImage
+   396→        // (drawImage works synchronously with ImageBitmap, but we have a
+   397→        // data URL string. We need to convert.)
+   398→        //
+   399→        // To keep this simple + correct, we'll just clear the area of the
+   400→        // shape's bounding box + redraw the shape. The rest of the canvas
+   401→        // is preserved untouched.
+   402→        const dpr = window.devicePixelRatio || 1;
+   403→        const minX = Math.min(start[0], x);
+   404→        const minY = Math.min(start[1], y);
+   405→        const maxX = Math.max(start[0], x);
+   406→        const maxY = Math.max(start[1], y);
+   407→        const pad = width + 2;
+   408→
+   409→        // Clear the bounding box (+pad). Because eraser uses
+   410→        // destination-out, clearing with destination-out would also erase
+   411→        // existing strokes — so we use clearRect (which is a real clear,
+   412→        // not a destination-out composite). We then need to redraw the
+   413→        // shape on top.
+   414→        ctx.save();
+   415→        ctx.globalCompositeOperation = "copy";
+   416→        // For "copy" composite, clearRect produces transparent pixels — but
+   417→        // we want the previous content of that area. Re-fetch from the
+   418→        // history snapshot:
+   419→        //
+   420→        // To avoid an async Image load, switch to a different approach:
+   421→        // save the snapshot as ImageBitmap once at shape start.
+   422→        ctx.restore();
+   423→
+   424→        // Simpler: re-load the snapshot via an Image, but synchronously
+   425→        // is impossible. So we use the offscreen approach: a temporary
+   426→        // canvas that holds the snapshot.
+   427→        if (!shapeSnapshotRef.current && preShapeSnapshot) {
+   428→          const off = document.createElement("canvas");
+   429→          off.width = canvas.width;
+   430→          off.height = canvas.height;
+   431→          const offCtx = off.getContext("2d");
+   432→          if (offCtx) {
+   433→            const img = new Image();
+   434→            img.onload = () => {
+   435→              offCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
+   436→            };
+   437→            img.src = preShapeSnapshot;
+   438→            shapeSnapshotRef.current = off;
+   439→          }
+   440→        }
+   441→      }
+   442→
+   443→      // Redraw the snapshot's bounding box area, then draw the live shape.
+   444→      if (shapeSnapshotRef.current) {
+   445→        const dpr = window.devicePixelRatio || 1;
+   446→        ctx.save();
+   447→        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+   448→        ctx.drawImage(
+   449→          shapeSnapshotRef.current,
+   450→          0,
+   451→          0,
+   452→          canvas.width / dpr,
+   453→          canvas.height / dpr
+   454→        );
+   455→        ctx.restore();
+   456→      }
+   457→
+   458→      // Draw the shape preview.
+   459→      applyStrokeStyle(ctx);
+   460→      ctx.beginPath();
+   461→      if (tool === "rectangle") {
+   462→        ctx.rect(start[0], start[1], x - start[0], y - start[1]);
+   463→        ctx.stroke();
+   464→      } else if (tool === "circle") {
+   465→        const cx = (start[0] + x) / 2;
+   466→        const cy = (start[1] + y) / 2;
+   467→        const rx = Math.abs(x - start[0]) / 2;
+   468→        const ry = Math.abs(y - start[1]) / 2;
+   469→        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+   470→        ctx.stroke();
+   471→      } else if (tool === "line") {
+   472→        ctx.moveTo(start[0], start[1]);
+   473→        ctx.lineTo(x, y);
+   474→        ctx.stroke();
+   475→      }
+   476→    }
+   477→  };
+   478→
+   479→  const shapeSnapshotRef = useRef<HTMLCanvasElement | null>(null);
+   480→
+   481→  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+   482→    if (!canEdit || !drawingRef.current) return;
+   483→    drawingRef.current = false;
+   484→    const canvas = drawCanvasRef.current;
+   485→    if (canvas) {
+   486→      canvas.releasePointerCapture(e.pointerId);
+   487→    }
+   488→    strokeBufferRef.current = [];
+   489→    shapeStartRef.current = null;
+   490→    shapeSnapshotRef.current = null;
+   491→    // Commit the stroke to history.
+   492→    pushHistory();
+   493→  };
+   494→
+   495→  const applyStrokeStyle = (ctx: CanvasRenderingContext2D) => {
+   496→    ctx.strokeStyle = color;
+   497→    ctx.lineWidth = width;
+   498→    ctx.globalAlpha = 1;
+   499→    ctx.globalCompositeOperation = "source-over";
+   500→    if (tool === "eraser") {
+   501→      ctx.globalCompositeOperation = "destination-out";
+   502→      ctx.strokeStyle = "#000";
+   503→    } else if (tool === "highlighter") {
+   504→      ctx.globalAlpha = 0.3;
+   505→      ctx.lineWidth = Math.max(width, 12);
+   506→      ctx.lineCap = "square";
+   507→    } else {
+   508→      ctx.lineCap = "round";
+   509→      ctx.lineJoin = "round";
+   510→    }
+   511→  };
+   512→
+   513→  // ----- Text tool -----
+   514→  const commitText = () => {
+   515→    if (!textInputAt || !textInputValue.trim()) {
+   516→      setTextInputAt(null);
+   517→      setTextInputValue("");
+   518→      return;
+   519→    }
+   520→    const canvas = drawCanvasRef.current;
+   521→    if (canvas) {
+   522→      const ctx = canvas.getContext("2d");
+   523→      if (ctx) {
+   524→        ctx.save();
+   525→        ctx.globalCompositeOperation = "source-over";
+   526→        ctx.globalAlpha = 1;
+   527→        ctx.fillStyle = color;
+   528→        ctx.font = `${Math.max(14, width * 4)}px ui-sans-serif, system-ui, sans-serif`;
+   529→        ctx.textBaseline = "top";
+   530→        // Multi-line: split on newlines.
+   531→        const lines = textInputValue.split("\n");
+   532→        const lineHeight = Math.max(14, width * 4) * 1.2;
+   533→        lines.forEach((line, i) => {
+   534→          ctx.fillText(line, textInputAt.x, textInputAt.y + i * lineHeight);
+   535→        });
+   536→        ctx.restore();
+   537→        pushHistory();
+   538→      }
+   539→    }
+   540→    setTextInputAt(null);
+   541→    setTextInputValue("");
+   542→  };
+   543→
+   544→  // ----- Clear board -----
+   545→  const clearBoard = () => {
+   546→    const canvas = drawCanvasRef.current;
+   547→    if (!canvas) return;
+   548→    const ctx = canvas.getContext("2d");
+   549→    if (!ctx) return;
+   550→    const dpr = window.devicePixelRatio || 1;
+   551→    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+   552→    pushHistory();
+   553→  };
+   554→
+   555→  // ----- Export & Share -----
+   556→  const openExport = () => {
+   557→    setExportTitle(`${className} — Whiteboard ${new Date().toLocaleDateString()}`);
+   558→    setExportError(null);
+   559→    setExportSuccess(false);
+   560→    setExportOpen(true);
+   561→  };
+   562→
+   563→  const handleExport = async () => {
+   564→    const bgCanvas = bgCanvasRef.current;
+   565→    const drawCanvas = drawCanvasRef.current;
+   566→    if (!bgCanvas || !drawCanvas) return;
+   567→
+   568→    setExporting(true);
+   569→    setExportError(null);
+   570→
+   571→    try {
+   572→      // Composite the bg + draw layers into a single canvas.
+   573→      const out = document.createElement("canvas");
+   574→      out.width = bgCanvas.width;
+   575→      out.height = bgCanvas.height;
+   576→      const outCtx = out.getContext("2d");
+   577→      if (!outCtx) throw new Error("Could not create export canvas context.");
+   578→      outCtx.drawImage(bgCanvas, 0, 0);
+   579→      outCtx.drawImage(drawCanvas, 0, 0);
+   580→      const dataUrl = out.toDataURL("image/png");
+   581→
+   582→      // Build multipart/form-data.
+   583→      const blob = await (await fetch(dataUrl)).blob();
+   584→      const fd = new FormData();
+   585→      fd.append("classId", classId);
+   586→      fd.append("title", exportTitle.trim() || "Untitled whiteboard export");
+   587→      fd.append("image", blob, "whiteboard.png");
+   588→
+   589→      const res = await fetch("/api/whiteboard/export", {
+   590→        method: "POST",
+   591→        body: fd,
+   592→      });
+   593→      const json = await res.json();
+   594→      if (!res.ok) {
+   595→        throw new Error(json.error || `Failed (HTTP ${res.status})`);
+   596→      }
+   597→      setExportSuccess(true);
+   598→      setTimeout(() => setExportOpen(false), 1500);
+   599→    } catch (err) {
+   600→      setExportError(err instanceof Error ? err.message : String(err));
+   601→    } finally {
+   602→      setExporting(false);
+   603→    }
+   604→  };
+   605→
+   606→  // ----- Download PNG locally (no upload) -----
+   607→  const downloadPng = () => {
+   608→    const bgCanvas = bgCanvasRef.current;
+   609→    const drawCanvas = drawCanvasRef.current;
+   610→    if (!bgCanvas || !drawCanvas) return;
+   611→    const out = document.createElement("canvas");
+   612→    out.width = bgCanvas.width;
+   613→    out.height = bgCanvas.height;
+   614→    const ctx = out.getContext("2d");
+   615→    if (!ctx) return;
+   616→    ctx.drawImage(bgCanvas, 0, 0);
+   617→    ctx.drawImage(drawCanvas, 0, 0);
+   618→    const url = out.toDataURL("image/png");
+   619→    const a = document.createElement("a");
+   620→    a.href = url;
+   621→    a.download = `whiteboard-${Date.now()}.png`;
+   622→    a.click();
+   623→  };
+   624→
+   625→  const canUndo = historyIdxRef.current > 0;
+   626→  const canRedo = historyIdxRef.current < historyRef.current.length - 1;
+   627→
+   628→  return (
+   629→    <div className="space-y-3">
+   630→      {/* Floating dock (top) */}
+   631→      <div className="sticky top-2 z-20 flex flex-wrap items-center gap-1.5 rounded-2xl border-2 border-slate-900 bg-[#FDFBF7] p-2 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
+   632→        {/* Tool group */}
+   633→        <ToolButton icon={Pencil} label="Pen" active={tool === "pen"} onClick={() => setTool("pen")} disabled={!canEdit} />
+   634→        <ToolButton icon={Highlighter} label="Highlighter" active={tool === "highlighter"} onClick={() => setTool("highlighter")} disabled={!canEdit} />
+   635→        <ToolButton icon={Eraser} label="Eraser" active={tool === "eraser"} onClick={() => setTool("eraser")} disabled={!canEdit} />
+   636→        <ToolButton icon={Type} label="Text" active={tool === "text"} onClick={() => setTool("text")} disabled={!canEdit} />
+   637→        <ToolDivider />
+   638→        <ToolButton icon={Square} label="Rectangle" active={tool === "rectangle"} onClick={() => setTool("rectangle")} disabled={!canEdit} />
+   639→        <ToolButton icon={CircleIcon} label="Circle" active={tool === "circle"} onClick={() => setTool("circle")} disabled={!canEdit} />
+   640→        <ToolButton icon={Minus} label="Line" active={tool === "line"} onClick={() => setTool("line")} disabled={!canEdit} />
+   641→
+   642→        <ToolDivider />
+   643→
+   644→        {/* Color swatches */}
+   645→        <div className="flex items-center gap-1 rounded-lg border-2 border-slate-900 bg-white p-1">
+   646→          {PEN_COLORS.map((c) => (
+   647→            <button
+   648→              key={c}
+   649→              type="button"
+   650→              aria-label={`Color ${c}`}
+   651→              onClick={() => setColor(c)}
+   652→              className={cn(
+   653→                "size-5 rounded-full border-2 transition-all",
+   654→                color === c
+   655→                  ? "border-slate-900 ring-2 ring-emerald-500 ring-offset-1 scale-110"
+   656→                  : "border-slate-900/50 hover:scale-105"
+   657→              )}
+   658→              style={{ background: c }}
+   659→            />
+   660→          ))}
+   661→        </div>
+   662→
+   663→        {/* Width slider */}
+   664→        <div className="flex items-center gap-2 rounded-lg border-2 border-slate-900 bg-white px-3 py-1.5">
+   665→          <Brush className="size-3.5 text-slate-700" />
+   666→          <input
+   667→            type="range"
+   668→            min={0}
+   669→            max={PEN_WIDTHS.length - 1}
+   670→            step={1}
+   671→            value={Math.max(0, PEN_WIDTHS.indexOf(width))}
+   672→            onChange={(e) => setWidth(PEN_WIDTHS[Number(e.target.value)] ?? 4)}
+   673→            disabled={!canEdit}
+   674→            className="h-2 w-20 cursor-pointer accent-emerald-500"
+   675→            aria-label="Line width"
+   676→          />
+   677→          <span className="w-8 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+   678→            {width}px
+   679→          </span>
+   680→        </div>
+   681→
+   682→        <ToolDivider />
+   683→
+   684→        {/* Background toggle */}
+   685→        <div className="flex items-center gap-1 rounded-lg border-2 border-slate-900 bg-white p-1">
+   686→          <ToolButton
+   687→            icon={PanelsTopLeft}
+   688→            label="White bg"
+   689→            size="sm"
+   690→            active={background === "white"}
+   691→            onClick={() => setBackground("white")}
+   692→            activeClass="bg-white text-slate-900 border-slate-900"
+   693→          />
+   694→          <ToolButton
+   695→            icon={Grid3x3}
+   696→            label="Grid bg"
+   697→            size="sm"
+   698→            active={background === "grid"}
+   699→            onClick={() => setBackground("grid")}
+   700→            activeClass="bg-sky-300 text-slate-900 border-slate-900"
+   701→          />
+   702→          <ToolButton
+   703→            icon={AlignJustify}
+   704→            label="Lined bg"
+   705→            size="sm"
+   706→            active={background === "lined"}
+   707→            onClick={() => setBackground("lined")}
+   708→            activeClass="bg-amber-300 text-slate-900 border-slate-900"
+   709→          />
+   710→          <ToolButton
+   711→            icon={PanelsTopLeft}
+   712→            label="Chalkboard"
+   713→            size="sm"
+   714→            active={background === "chalkboard"}
+   715→            onClick={() => setBackground("chalkboard")}
+   716→            activeClass="bg-emerald-500 text-[#FDFBF7] border-emerald-600"
+   717→          />
+   718→        </div>
+   719→
+   720→        <ToolDivider />
+   721→
+   722→        {/* Undo / Redo / Clear */}
+   723→        <ToolButton
+   724→          icon={Undo2}
+   725→          label="Undo"
+   726→          onClick={undo}
+   727→          disabled={!canEdit || !canUndo}
+   728→          activeClass="bg-amber-400 text-slate-900 border-amber-500"
+   729→        />
+   730→        <ToolButton
+   731→          icon={Redo2}
+   732→          label="Redo"
+   733→          onClick={redo}
+   734→          disabled={!canEdit || !canRedo}
+   735→          activeClass="bg-amber-400 text-slate-900 border-amber-500"
+   736→        />
+   737→        <ToolButton
+   738→          icon={Trash2}
+   739→          label="Clear board"
+   740→          onClick={clearBoard}
+   741→          disabled={!canEdit}
+   742→          activeClass="bg-rose-500 text-[#FDFBF7] border-rose-600"
+   743→        />
+   744→
+   745→        <ToolDivider />
+   746→
+   747→        {/* Download + Export */}
+   748→        <ToolButton
+   749→          icon={Download}
+   750→          label="Download PNG"
+   751→          onClick={downloadPng}
+   752→          activeClass="bg-sky-300 text-slate-900 border-slate-900"
+   753→        />
+   754→        {canEdit && (
+   755→          <Button
+   756→            type="button"
+   757→            variant="emerald"
+   758→            size="sm"
+   759→            onClick={openExport}
+   760→            className="ml-1"
+   761→          >
+   762→            <Upload className="size-4" />
+   763→            Export &amp; Share with Class
+   764→          </Button>
+   765→        )}
+   766→      </div>
+   767→
+   768→      {/* Canvas wrapper */}
+   769→      <div
+   770→        ref={wrapRef}
+   771→        className="relative h-[calc(100vh-220px)] min-h-[400px] w-full overflow-hidden rounded-2xl border-[3px] border-slate-900 bg-white shadow-[6px_6px_0px_0px_rgba(15,23,42,1)]"
+   772→      >
+   773→        <canvas
+   774→          ref={bgCanvasRef}
+   775→          className="absolute inset-0"
+   776→          aria-hidden
+   777→        />
+   778→        <canvas
+   779→          ref={drawCanvasRef}
+   780→          onPointerDown={onPointerDown}
+   781→          onPointerMove={onPointerMove}
+   782→          onPointerUp={onPointerUp}
+   783→          onPointerCancel={onPointerUp}
+   784→          className={cn(
+   785→            "absolute inset-0 touch-none",
+   786→            canEdit ? "cursor-crosshair" : "cursor-default"
+   787→          )}
+   788→          style={{ pointerEvents: canEdit ? "auto" : "none" }}
+   789→        />
+   790→
+   791→        {/* Text input overlay */}
+   792→        {textInputAt && (
+   793→          <div
+   794→            className="absolute z-30"
+   795→            style={{ left: textInputAt.x, top: textInputAt.y }}
+   796→          >
+   797→            <textarea
+   798→              autoFocus
+   799→              value={textInputValue}
+   800→              onChange={(e) => setTextInputValue(e.target.value)}
+   801→              onKeyDown={(e) => {
+   802→                if (e.key === "Enter" && !e.shiftKey) {
+   803→                  e.preventDefault();
+   804→                  commitText();
+   805→                }
+   806→                if (e.key === "Escape") {
+   807→                  setTextInputAt(null);
+   808→                  setTextInputValue("");
+   809→                }
+   810→              }}
+   811→              onBlur={commitText}
+   812→              rows={2}
+   813→              placeholder="Type + press Enter (Esc to cancel)"
+   814→              className="block rounded-lg border-2 border-slate-900 bg-white p-1 text-sm shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] outline-none focus:ring-2 focus:ring-emerald-500"
+   815→              style={{ color, minWidth: 180 }}
+   816→            />
+   817→          </div>
+   818→        )}
+   819→
+   820→        {/* Read-only banner for students */}
+   821→        {!canEdit && (
+   822→          <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-full border-2 border-slate-900 bg-amber-300 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-900 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
+   823→            Read-only view
+   824→          </div>
+   825→        )}
+   826→      </div>
+   827→
+   828→      {/* Export modal */}
+   829→      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+   830→        <DialogContent className="sm:max-w-md">
+   831→          <DialogHeader>
+   832→            <DialogTitle>Export &amp; share with class</DialogTitle>
+   833→            <DialogDescription>
+   834→              The current board is saved as a PNG, uploaded to the
+   835→              {" "}<code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">class_materials</code>
+   836→              {" "}bucket, and added as a Resource so students can download it
+   837→              immediately.
+   838→            </DialogDescription>
+   839→          </DialogHeader>
+   840→
+   841→          <div className="space-y-4">
+   842→            <div className="space-y-2">
+   843→              <Label htmlFor="wb-export-title">Resource title</Label>
+   844→              <Input
+   845→                id="wb-export-title"
+   846→                type="text"
+   847→                value={exportTitle}
+   848→                onChange={(e) => setExportTitle(e.target.value)}
+   849→                placeholder="e.g. Week 5 — Quadratic equations lecture"
+   850→                required
+   851→              />
+   852→            </div>
+   853→
+   854→            {exportError && (
+   855→              <div
+   856→                role="alert"
+   857→                className="rounded-xl border-2 border-rose-500 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 shadow-[2px_2px_0px_0px_rgba(244,63,94,1)]"
+   858→              >
+   859→                {exportError}
+   860→              </div>
+   861→            )}
+   862→            {exportSuccess && (
+   863→              <div
+   864→                role="status"
+   865→                className="rounded-xl border-2 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]"
+   866→              >
+   867→                ✓ Saved! Students will see it in the Resources tab.
+   868→              </div>
+   869→            )}
+   870→          </div>
+   871→
+   872→          <DialogFooter>
+   873→            <Button variant="outline" onClick={() => setExportOpen(false)} disabled={exporting}>
+   874→              Cancel
+   875→            </Button>
+   876→            <Button
+   877→              variant="emerald"
+   878→              onClick={handleExport}
+   879→              disabled={exporting || !exportTitle.trim()}
+   880→            >
+   881→              {exporting ? (
+   882→                <>
+   883→                  <Loader2 className="size-4 animate-spin" />
+   884→                  Exporting…
+   885→                </>
+   886→              ) : (
+   887→                <>
+   888→                  <Upload className="size-4" />
+   889→                  Export &amp; Share
+   890→                </>
+   891→              )}
+   892→            </Button>
+   893→          </DialogFooter>
+   894→        </DialogContent>
+   895→      </Dialog>
+   896→    </div>
+   897→  );
+   898→}
+   899→
