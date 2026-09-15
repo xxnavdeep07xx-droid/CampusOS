@@ -180,6 +180,7 @@ function buildNav(role: UserRole | null, staffRole?: string | null) {
     return [
       ...common,
       { href: "/dashboard/teacher", label: "My Classes", icon: "GraduationCap" as const },
+      { href: "/dashboard/teacher/grading", label: "Grading Queue", icon: "ClipboardList" as const },
       { href: "/dashboard/teacher/schedule", label: "My Schedule", icon: "CalendarDays" as const },
       { href: "/dashboard/teacher/leave", label: "Leave Requests", icon: "ClipboardList" as const },
       { href: "/dashboard/students", label: "My Students", icon: "UserCog" as const },
