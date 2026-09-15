@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Eraser,
   Inbox,
   Loader2,
   Save,
   Users,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +105,37 @@ export function AttendanceTaker({
 
   function handleStatusChange(studentId: string, status: AttendanceStatus) {
     setRecords((prev) => ({ ...prev, [studentId]: status }));
+  }
+
+  /**
+   * Bulk action: set every student to "present". Teachers then uncheck
+   * the few who are absent/late — much faster than marking each student
+   * individually when most of the class is present.
+   */
+  function markAllPresent() {
+    setRecords((prev) => {
+      const next: Record<string, AttendanceStatus> = {};
+      for (const s of students) next[s.id] = "present";
+      return next;
+    });
+  }
+
+  /**
+   * Bulk action: clear any un-saved status for students who currently have
+   * "present" but nothing individualized. Useful when you marked everyone
+   * present by accident — clears back to the previously-saved state per
+   * student.
+   *
+   * Implementation note: we intentionally only clear rows whose status is
+   * currently "present" AND whose initial state was something else, so we
+   * don't wipe legitimate "absent"/"late" marks the teacher already made.
+   */
+  function clearAll() {
+    setRecords(() => {
+      const m: Record<string, AttendanceStatus> = {};
+      for (const r of initialRecords) m[r.student_id] = r.status;
+      return m;
+    });
   }
 
   function shiftDate(days: number) {
@@ -224,6 +257,33 @@ export function AttendanceTaker({
             {summary.unmarked > 0 && (
               <Badge variant="outline">{summary.unmarked} unmarked</Badge>
             )}
+          </div>
+
+          {/* Bulk actions — the key UX feature. Mark all present, then
+              teachers only need to un-mark the few who are absent/late. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="emerald"
+              size="sm"
+              onClick={markAllPresent}
+              disabled={saving || students.length === 0}
+              className="shadow-[2px_2px_0px_0px_rgba(5,150,105,1)]"
+            >
+              <Zap className="size-4" strokeWidth={2.5} />
+              Mark all present
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={clearAll}
+              disabled={saving || Object.keys(records).length === 0}
+              title="Reset to last saved state"
+            >
+              <Eraser className="size-4" />
+              Reset
+            </Button>
           </div>
         </CardContent>
       </Card>

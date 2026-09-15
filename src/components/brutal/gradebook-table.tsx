@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -34,6 +34,25 @@ export function GradebookTable({
   className?: string;
 }) {
   const [exporting, setExporting] = useState(false);
+  const [showAtRiskOnly, setShowAtRiskOnly] = useState(false);
+
+  // At-risk = percentage below 50% (F grade) OR no grades yet (which is a
+  // different kind of risk — missing data the teacher needs to address).
+  const atRiskThreshold = 50;
+  const atRiskCount = useMemo(
+    () =>
+      rows.filter(
+        (r) => r.percentage == null || r.percentage < atRiskThreshold
+      ).length,
+    [rows]
+  );
+
+  const visibleRows = useMemo(() => {
+    if (!showAtRiskOnly) return rows;
+    return rows.filter(
+      (r) => r.percentage == null || r.percentage < atRiskThreshold
+    );
+  }, [rows, showAtRiskOnly]);
 
   function exportCsv() {
     setExporting(true);
@@ -87,7 +106,7 @@ export function GradebookTable({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${className.replace(/[^a-z0-9-]/gi, "_")}_gradebook.csv`;
+      a.download = `${(className ?? "class").replace(/[^a-z0-9-]/gi, "_")}_gradebook.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -113,10 +132,27 @@ export function GradebookTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
-          {rows.length} {rows.length === 1 ? "student" : "students"}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+            {visibleRows.length} {visibleRows.length === 1 ? "student" : "students"}
+            {showAtRiskOnly && ` (filtered from ${rows.length})`}
+          </p>
+          {atRiskCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAtRiskOnly((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-full border-2 border-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] transition-all ${
+                showAtRiskOnly
+                  ? "bg-rose-400 text-[#FDFBF7]"
+                  : "bg-rose-100 text-rose-700 hover:bg-rose-200"
+              }`}
+            >
+              <AlertTriangle className="size-3" strokeWidth={2.5} />
+              {atRiskCount} at-risk
+            </button>
+          )}
+        </div>
         <Button
           type="button"
           variant="sky"
@@ -146,10 +182,11 @@ export function GradebookTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row, i) => {
+          {visibleRows.map((row, i) => {
             const pct = row.percentage;
+            const isAtRisk = pct == null || pct < atRiskThreshold;
             return (
-              <TableRow key={row.student_id}>
+              <TableRow key={row.student_id} className={isAtRisk && showAtRiskOnly ? "bg-rose-50" : ""}>
                 <TableCell className="text-center text-xs font-bold text-slate-500">
                   {i + 1}
                 </TableCell>

@@ -27,7 +27,56 @@ export interface Profile {
    * students need to be re-invited to a specific class.
    */
   class_id?: string | null;
+  /**
+   * Free-text parent/guardian name for student profiles.
+   * Added in migration 0009. Denormalized for quick access — the source of
+   * truth for parent-user linkage is the `parent_student_links` table.
+   */
+  parent_contact?: string | null;
+  /** Free-text parent/guardian phone for student profiles. Added in migration 0009. */
+  parent_phone?: string | null;
+  /**
+   * Long-term free-text notes (IEP, allergies, recurring patterns).
+   * Different from `behavior_incidents` which are time-stamped events.
+   * Added in migration 0009.
+   */
+  behavioral_notes?: string | null;
   created_at: string;
+}
+
+// ============================================================
+// Behavior incidents (Phase 9 — migration 0009_behavior_incidents.sql)
+// ============================================================
+
+export type IncidentSeverity = "positive" | "concern" | "neutral";
+
+export type IncidentCategory =
+  | "academic"
+  | "behavioral"
+  | "attendance"
+  | "social"
+  | "recognition"
+  | "other";
+
+export interface BehaviorIncident {
+  id: string;
+  student_id: string;
+  class_id: string | null;
+  recorded_by: string;
+  incident_date: string; // ISO date string YYYY-MM-DD
+  severity: IncidentSeverity;
+  category: IncidentCategory;
+  title: string;
+  description: string | null;
+  action_taken: string | null;
+  created_at: string;
+}
+
+/** Joined variant used by list views — includes student + recorder names. */
+export interface BehaviorIncidentWithJoins extends BehaviorIncident {
+  student?: Pick<Profile, "id" | "full_name"> | null;
+  recorder?: Pick<Profile, "id" | "full_name"> | null;
+  classes?: { id: string; name: string } | null;
 }
 
 export interface ClassRoom {
