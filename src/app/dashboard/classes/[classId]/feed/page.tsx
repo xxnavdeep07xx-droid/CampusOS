@@ -49,6 +49,19 @@ export default async function FeedPage({
     notFound();
   }
 
+  // Fetch the teacher's OTHER classes so the announcements modal can offer
+  // a "broadcast to multiple classes" option. Only fetched for teachers.
+  let siblingClasses: { id: string; name: string }[] = [];
+  if (isTeacher) {
+    const { data: otherClasses } = await supabase
+      .from("classes")
+      .select("id, name")
+      .eq("teacher_id", user.id)
+      .neq("id", classId)
+      .order("name");
+    siblingClasses = (otherClasses ?? []) as { id: string; name: string }[];
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -91,7 +104,11 @@ export default async function FeedPage({
         </TabsList>
 
         <TabsContent value="announcements">
-          <AnnouncementsBoard classId={classId} profile={profile} />
+          <AnnouncementsBoard
+            classId={classId}
+            profile={profile}
+            siblingClasses={siblingClasses}
+          />
         </TabsContent>
 
         <TabsContent value="chat">

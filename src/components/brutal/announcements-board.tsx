@@ -59,9 +59,11 @@ import { cn } from "@/lib/utils";
 export function AnnouncementsBoard({
   classId,
   profile,
+  siblingClasses = [],
 }: {
   classId: string;
   profile: Profile;
+  siblingClasses?: { id: string; name: string }[];
 }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,6 +190,7 @@ export function AnnouncementsBoard({
         {isTeacher && (
           <CreateAnnouncementModal
             classId={classId}
+            siblingClasses={siblingClasses}
             onCreated={() => setRefreshKey((k) => k + 1)}
           />
         )}
@@ -309,9 +312,11 @@ export function AnnouncementsBoard({
 
 function CreateAnnouncementModal({
   classId,
+  siblingClasses = [],
   onCreated,
 }: {
   classId: string;
+  siblingClasses?: { id: string; name: string }[];
   onCreated?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -319,6 +324,9 @@ function CreateAnnouncementModal({
   const [content, setContent] = useState("");
   const [tag, setTag] = useState<AnnouncementTag>("general");
   const [isPinned, setIsPinned] = useState(false);
+  // Multi-class broadcast — selected sibling class IDs (NOT including the
+  // current classId, which is always posted to).
+  const [broadcastTo, setBroadcastTo] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -327,12 +335,22 @@ function CreateAnnouncementModal({
     setContent("");
     setTag("general");
     setIsPinned(false);
+    setBroadcastTo(new Set());
     setCreating(false);
     setError(null);
   }
   function close() {
     setOpen(false);
     setTimeout(reset, 200);
+  }
+
+  function toggleBroadcast(id: string) {
+    setBroadcastTo((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   async function handleCreate() {
@@ -343,20 +361,30 @@ function CreateAnnouncementModal({
     setCreating(true);
     setError(null);
     try {
-      const res = await fetch("/api/announcements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          classId,
-          title: title.trim(),
-          content: content.trim(),
-          tag,
-          isPinned,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || `Failed (HTTP ${res.status})`);
+      // Always post to the current class.
+      const targetClassIds = [classId, ...Array.from(broadcastTo)];
+      const results = await Promise.all(
+        targetClassIds.map((cid) =>
+          fetch("/api/announcements", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              classId: cid,
+              title: title.trim(),
+              content: content.trim(),
+              tag,
+              isPinned,
+            }),
+          }).then((r) => r.json().then((j) => ({ ok: r.ok, json: j, cid })))
+        )
+      );
+      const failures = results.filter((r) => !r.ok);
+      if (failures.length > 0) {
+        const first = failures[0];
+        throw new Error(
+          `${failures.length}/${results.length} failed. First error: ` +
+            (first.json.error || `HTTP ${first.json.status}`)
+        );
       }
       onCreated?.();
       close();
@@ -366,6 +394,8 @@ function CreateAnnouncementModal({
       setCreating(false);
     }
   }
+
+  const totalRecipients = 1 + broadcastTo.size;
 
   return (
     <Dialog
@@ -447,6 +477,43 @@ function CreateAnnouncementModal({
             </div>
           </div>
 
+          {/* Broadcast to multiple classes — only shown if the teacher has
+              other classes besides the current one. */}
+          {siblingClasses.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Broadcast to other classes?</Label>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  {totalRecipients} class{totalRecipients === 1 ? "" : "es"} total
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {siblingClasses.map((c) => {
+                  const selected = broadcastTo.has(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleBroadcast(c.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border-2 border-slate-900 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-all",
+                        selected
+                          ? "bg-emerald-500 text-[#FDFBF7] shadow-[1.5px_1.5px_0px_0px_rgba(5,150,105,1)]"
+                          : "bg-white text-slate-900 hover:bg-amber-100"
+                      )}
+                    >
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] font-medium text-slate-500">
+                Posts an identical announcement to each selected class.
+                Current class is always included.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div
               role="alert"
@@ -474,7 +541,7 @@ function CreateAnnouncementModal({
             ) : (
               <>
                 <Megaphone className="size-4" />
-                Post announcement
+                {totalRecipients > 1 ? `Broadcast to ${totalRecipients} classes` : "Post announcement"}
               </>
             )}
           </Button>
