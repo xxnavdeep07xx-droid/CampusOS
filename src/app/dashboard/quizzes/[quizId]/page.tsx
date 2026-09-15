@@ -1,19 +1,23 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, BarChart3, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tag } from "@/components/brutal/section";
 import { QuizTaker } from "@/components/brutal/quiz-taker";
+import { QuizResultsTeacherView } from "@/components/brutal/quiz-results-teacher-view";
 import type { Quiz, QuizQuestion, QuizAttempt, Profile, ClassRoom } from "@/lib/types";
+import { formatDate } from "@/lib/storage";
 
 /**
- * Quiz taking page at /dashboard/quizzes/[quizId].
+ * Quiz page at /dashboard/quizzes/[quizId].
  *
- * Server component. Fetches the quiz + questions, starts (or resumes) the
- * student's attempt, then renders the QuizTaker client component.
- *
- * If the student has already submitted, we render the score view directly
- * (the QuizTaker accepts an `alreadyCompleted` prop for that).
+ * Branches by role:
+ *   - student: takes the quiz (or sees their result if already completed)
+ *   - teacher: sees a results dashboard (per-student scores, per-question
+ *              breakdown, edit/delete actions for the quiz itself)
+ *   - other: redirected to /dashboard
  */
 export default async function QuizPage({
   params,
@@ -33,13 +37,11 @@ export default async function QuizPage({
     .eq("id", user.id)
     .single();
   const profile = profileRow as Profile | null;
-  if (!profile || profile.role !== "student") {
-    redirect("/dashboard");
-  }
+  if (!profile) redirect("/dashboard");
 
   const admin = createAdminClient();
 
-  // Fetch the quiz + questions.
+  // Fetch the quiz + class.
   const { data: quizRow, error: quizErr } = await admin
     .from("quizzes")
     .select("*")
@@ -47,6 +49,81 @@ export default async function QuizPage({
     .single();
   if (quizErr || !quizRow) notFound();
   const quiz = quizRow as Quiz;
+
+  const { data: clsRow } = await admin
+    .from("classes")
+    .select("id, name, teacher_id")
+    .eq("id", quiz.class_id)
+    .single();
+  const cls = clsRow as { id: string; name: string; teacher_id: string } | null;
+
+  // ===== TEACHER BRANCH =====
+  // The teacher of this class (and principal/staff in same school) see a
+  // results dashboard instead of taking the quiz.
+  if (profile.role === "teacher" || profile.role === "principal" || profile.role === "staff") {
+    const isTeacher = cls?.teacher_id === user.id;
+    const isSchoolAdmin =
+      (profile.role === "principal" || profile.role === "staff") &&
+      profile.school_id != null &&
+      // The class's school_id must match the admin's school_id — fetch below.
+      cls != null;
+
+    // Fetch the questions (with correct_answer for the teacher).
+    const { data: questionRows, error: qErr } = await admin
+      .from("quiz_questions")
+      .select("*")
+      .eq("quiz_id", quizId)
+      .order("position", { ascending: true });
+    const questions = (questionRows ?? []) as QuizQuestion[];
+
+    // Fetch all attempts for this quiz (any status).
+    let attempts: any[] = [];
+    let migrationMissing = false;
+    try {
+      const { data: aRows, error: aErr } = await admin
+        .from("quiz_attempts")
+        .select(`
+          id,
+          student_id,
+          score,
+          max_score,
+          status,
+          started_at,
+          submitted_at,
+          answers,
+          student:profiles!quiz_attempts_student_id_fkey(id, full_name)
+        `)
+        .eq("quiz_id", quizId)
+        .order("submitted_at", { ascending: false, nullsFirst: false });
+      if (aErr && /Could not find the table|does not exist/i.test(aErr.message)) {
+        migrationMissing = true;
+      } else if (!aErr && aRows) {
+        attempts = aRows as any[];
+      }
+    } catch (err) {
+      console.warn("quiz-attempts fetch error:", err);
+    }
+
+    return (
+      <QuizResultsTeacherView
+        quiz={quiz}
+        questions={questions}
+        attempts={attempts}
+        className={cls?.name ?? "Class"}
+        classId={quiz.class_id}
+        isTeacher={isTeacher}
+        migrationMissing={migrationMissing}
+      />
+    );
+    // Note: isSchoolAdmin currently falls through to the teacher view above with
+    // isTeacher=false (read-only). The teacher-only actions (edit/delete) are
+    // hidden when isTeacher is false.
+  }
+
+  // ===== STUDENT BRANCH (original behavior) =====
+  if (profile.role !== "student") {
+    redirect("/dashboard");
+  }
 
   // Verify the student is enrolled in the quiz's class.
   if (profile.class_id !== quiz.class_id) {
@@ -111,20 +188,12 @@ export default async function QuizPage({
 
   // If the student has a completed attempt, show the result view.
   if (existingAttempt && existingAttempt.status === "completed") {
-    // Fetch the class name for the header.
-    const { data: clsRow } = await admin
-      .from("classes")
-      .select("name")
-      .eq("id", quiz.class_id)
-      .single();
-    const className = (clsRow as { name: string } | null)?.name ?? "Class";
-
     return (
       <QuizTaker
         quiz={quiz}
         questions={questions}
         attempt={existingAttempt as QuizAttempt}
-        className={className}
+        className={cls?.name ?? "Class"}
         alreadyCompleted
       />
     );
@@ -159,20 +228,12 @@ export default async function QuizPage({
     attempt = newAttempt as QuizAttempt;
   }
 
-  // Fetch the class name.
-  const { data: clsRow } = await admin
-    .from("classes")
-    .select("name")
-    .eq("id", quiz.class_id)
-    .single();
-  const className = (clsRow as { name: string } | null)?.name ?? "Class";
-
   return (
     <QuizTaker
       quiz={quiz}
       questions={questions}
       attempt={attempt}
-      className={className}
+      className={cls?.name ?? "Class"}
     />
   );
 }

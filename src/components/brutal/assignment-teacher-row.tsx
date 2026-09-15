@@ -5,14 +5,24 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GradeSubmissionsList } from "@/components/brutal/grade-submissions-list";
+import { EditAssignmentModal } from "@/components/brutal/edit-assignment-modal";
 import type { Assignment } from "@/lib/types";
 import { formatDate, isOverdue } from "@/lib/storage";
 
 /**
  * AssignmentTeacherRow — a single assignment row in the teacher's
- * Assignments tab. Includes a "Grade submissions" expandable section.
+ * Assignments tab. Includes a "Grade submissions" expandable section
+ * and inline edit + delete actions via EditAssignmentModal.
  */
-export function AssignmentTeacherRow({ assignment }: { assignment: Assignment }) {
+export function AssignmentTeacherRow({
+  assignment,
+  onUpdated,
+  onDeleted,
+}: {
+  assignment: Assignment;
+  onUpdated?: () => void;
+  onDeleted?: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   const overdue = isOverdue(assignment.due_date);
@@ -42,6 +52,11 @@ export function AssignmentTeacherRow({ assignment }: { assignment: Assignment })
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <EditAssignmentModal
+              assignment={assignment}
+              onUpdated={onUpdated}
+              onDeleted={onDeleted}
+            />
             <Button
               type="button"
               variant="outline"

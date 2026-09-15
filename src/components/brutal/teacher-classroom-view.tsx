@@ -95,6 +95,27 @@ export function TeacherClassroomView({
     // No-op: initial data is already populated by the server component.
   }, [migrationMissing]);
 
+  // Delete a resource: confirm → DELETE /api/resources?id=... → refresh list.
+  async function handleDeleteResource(resourceId: string, title: string) {
+    const ok = window.confirm(
+      `Delete "${title}"? This permanently removes the file and the resource row. This cannot be undone.`
+    );
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/resources?id=${resourceId}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || `Failed (HTTP ${res.status})`);
+      }
+      // Optimistically remove from local state
+      setResources((prev) => prev.filter((r) => r.id !== resourceId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -254,7 +275,12 @@ export function TeacherClassroomView({
                   r.file_path
                 );
                 return (
-                  <ResourceCard key={r.id} resource={r} downloadUrl={downloadUrl} />
+                  <ResourceCard
+                    key={r.id}
+                    resource={r}
+                    downloadUrl={downloadUrl}
+                    onDelete={isTeacher ? () => handleDeleteResource(r.id, r.title) : undefined}
+                  />
                 );
               })}
             </div>
@@ -285,7 +311,12 @@ export function TeacherClassroomView({
           ) : (
             <div className="grid gap-3">
               {assignments.map((a) => (
-                <AssignmentTeacherRow key={a.id} assignment={a} />
+                <AssignmentTeacherRow
+                  key={a.id}
+                  assignment={a}
+                  onUpdated={refresh}
+                  onDeleted={refresh}
+                />
               ))}
             </div>
           )}
