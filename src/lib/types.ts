@@ -143,6 +143,101 @@ export interface Assignment {
   created_at: string;
 }
 
+// ============================================================
+// Assignment resource attachments (Phase 10 — migration 0010)
+// ============================================================
+
+export type AssignmentResourceKind = "file" | "link";
+
+export interface AssignmentResource {
+  id: string;
+  assignment_id: string;
+  kind: AssignmentResourceKind;
+  storage_path: string | null;
+  url: string | null;
+  label: string;
+  file_size: number | null;
+  mime_type: string | null;
+  position: number;
+  created_at: string;
+}
+
+// ============================================================
+// Lesson plans (Phase 10 — migration 0010)
+// ============================================================
+
+export type LessonPlanStatus = "draft" | "published";
+
+export interface LessonPlan {
+  id: string;
+  teacher_id: string;
+  class_id: string | null;
+  lesson_date: string | null; // ISO date YYYY-MM-DD
+  title: string;
+  body: string | null;
+  objectives: string[];
+  materials: string[];
+  duration_min: number;
+  status: LessonPlanStatus;
+  syllabus_unit_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Joined variant used by list views — includes class + syllabus unit names. */
+export interface LessonPlanWithJoins extends LessonPlan {
+  classes?: { id: string; name: string } | null;
+  syllabus_units?: { id: string; title: string } | null;
+}
+
+// ============================================================
+// Syllabus tracker (Phase 10 — migration 0010)
+// ============================================================
+
+export type SyllabusUnitStatus = "not_started" | "in_progress" | "completed";
+
+export interface SyllabusUnit {
+  id: string;
+  teacher_id: string;
+  class_id: string | null;
+  title: string;
+  description: string | null;
+  total_lessons: number;
+  completed_lessons: number;
+  target_date: string | null; // ISO date
+  status: SyllabusUnitStatus;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Joined variant — includes class name for cross-class syllabus overviews. */
+export interface SyllabusUnitWithJoins extends SyllabusUnit {
+  classes?: { id: string; name: string } | null;
+}
+
+// ============================================================
+// Teacher personal drive (Phase 10 — migration 0010)
+// ============================================================
+
+export interface TeacherFile {
+  id: string;
+  owner_id: string;
+  file_path: string;
+  name: string;
+  description: string | null;
+  file_size: number | null;
+  mime_type: string | null;
+  folder: string;
+  shared_with_class_id: string | null;
+  created_at: string;
+}
+
+/** Joined variant — includes the class a file is shared with (if any). */
+export interface TeacherFileWithJoins extends TeacherFile {
+  shared_with_class?: { id: string; name: string } | null;
+}
+
 export type SubmissionStatus = "submitted" | "graded";
 
 export interface Submission {

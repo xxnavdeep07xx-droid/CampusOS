@@ -7,6 +7,7 @@
  */
 import {
   BarChart3,
+  BookOpen,
   Building2,
   Bus,
   CalendarCheck,
@@ -15,6 +16,7 @@ import {
   DollarSign,
   FileText,
   GraduationCap,
+  HardDrive,
   HelpCircle,
   LayoutDashboard,
   Library,
@@ -29,6 +31,7 @@ import {
 
 export const ICON_MAP: Record<string, LucideIcon> = {
   BarChart3,
+  BookOpen,
   Building2,
   Bus,
   CalendarCheck,
@@ -37,6 +40,7 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   DollarSign,
   FileText,
   GraduationCap,
+  HardDrive,
   HelpCircle,
   LayoutDashboard,
   Library,

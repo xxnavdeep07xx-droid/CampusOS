@@ -11,6 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const CLASS_MATERIALS_BUCKET = "class_materials";
 export const STUDENT_SUBMISSIONS_BUCKET = "student_submissions";
+export const TEACHER_FILES_BUCKET = "teacher_files";
 
 /**
  * Build a storage path for a file uploaded to a class's bucket.
@@ -26,6 +27,23 @@ export function buildStoragePath(classId: string, originalFilename: string): str
   const uuid = cryptoRandomUuid();
   const fileName = ext ? `${uuid}.${ext}` : uuid;
   return `${classId}/${fileName}`;
+}
+
+/**
+ * Build a storage path for a file uploaded to a teacher's personal drive.
+ *
+ * Format: `<owner_id>/<uuid>.<ext>`
+ *
+ * Mirrors buildStoragePath but keyed on the teacher's user id — this lets
+ * the storage RLS policy (storage_path_owner_id) extract the owner from the
+ * path and verify it matches auth.uid(). See migration 0010.
+ */
+export function buildTeacherStoragePath(ownerId: string, originalFilename: string): string {
+  const safeName = originalFilename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const ext = safeName.includes(".") ? safeName.split(".").pop() : "";
+  const uuid = cryptoRandomUuid();
+  const fileName = ext ? `${uuid}.${ext}` : uuid;
+  return `${ownerId}/${fileName}`;
 }
 
 /**

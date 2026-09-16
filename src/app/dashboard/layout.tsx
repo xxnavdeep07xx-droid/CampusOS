@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   BarChart3,
+  BookOpen,
   Building2,
   Bus,
   CalendarCheck,
@@ -10,11 +11,13 @@ import {
   DollarSign,
   FileText,
   GraduationCap,
+  HardDrive,
   HelpCircle,
   LayoutDashboard,
   Library,
   LogOut,
   Megaphone,
+  TrendingUp,
   UserCog,
   Users,
 } from "lucide-react";
@@ -181,6 +184,9 @@ function buildNav(role: UserRole | null, staffRole?: string | null) {
       ...common,
       { href: "/dashboard/teacher", label: "My Classes", icon: "GraduationCap" as const },
       { href: "/dashboard/teacher/grading", label: "Grading Queue", icon: "ClipboardList" as const },
+      { href: "/dashboard/teacher/lessons", label: "Lesson Plans", icon: "BookOpen" as const },
+      { href: "/dashboard/teacher/syllabus", label: "Syllabus", icon: "TrendingUp" as const },
+      { href: "/dashboard/teacher/drive", label: "My Drive", icon: "HardDrive" as const },
       { href: "/dashboard/teacher/schedule", label: "My Schedule", icon: "CalendarDays" as const },
       { href: "/dashboard/teacher/leave", label: "Leave Requests", icon: "ClipboardList" as const },
       { href: "/dashboard/students", label: "My Students", icon: "UserCog" as const },
