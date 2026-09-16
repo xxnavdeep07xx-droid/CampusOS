@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     content?: string;
     tag?: string;
     isPinned?: boolean;
+    meetingUrl?: string;
   };
   try {
     body = await request.json();
@@ -30,6 +31,17 @@ export async function POST(request: Request) {
   const content = body.content?.trim() ?? "";
   const tag = (body.tag ?? "general") as AnnouncementTag;
   const isPinned = body.isPinned === true;
+  // Optional meeting URL (Zoom/Meet/Teams). Stored as-is; validated below.
+  let meetingUrl: string | null = null;
+  if (body.meetingUrl && body.meetingUrl.trim()) {
+    meetingUrl = body.meetingUrl.trim();
+    if (!/^https?:\/\//i.test(meetingUrl)) {
+      return NextResponse.json(
+        { error: "meetingUrl must start with http:// or https://" },
+        { status: 400 }
+      );
+    }
+  }
 
   if (!classId || !title) {
     return NextResponse.json(
@@ -98,6 +110,7 @@ export async function POST(request: Request) {
       content,
       tag,
       is_pinned: isPinned,
+      meeting_url: meetingUrl,
     })
     .select("*")
     .single();
@@ -113,6 +126,7 @@ export async function POST(request: Request) {
         content,
         tag,
         is_pinned: isPinned,
+        meeting_url: meetingUrl,
       })
       .select("*")
       .single();

@@ -465,6 +465,11 @@ export interface Announcement {
   content: string;
   tag: AnnouncementTag;
   is_pinned: boolean;
+  /**
+   * Optional Zoom/Meet/Teams link for class broadcasts.
+   * Added in Phase 11 (migration 0011). NULL = no meeting link.
+   */
+  meeting_url?: string | null;
   created_at: string;
   updated_at: string;
   /** Joined from profiles — only present when fetched with the relation. */
@@ -479,6 +484,43 @@ export interface ClassMessage {
   created_at: string;
   /** Joined from profiles — only present when fetched with the relation. */
   sender?: Pick<Profile, "id" | "full_name" | "role"> | null;
+}
+
+// ============================================================
+// Direct messages (Phase 11 — migration 0011_communication_center.sql)
+// ============================================================
+
+export interface DirectMessage {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  school_id: string | null;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Joined variant — used by list/inbox views. Includes denormalized sender +
+ * recipient profiles so the UI can render names without an extra fetch.
+ */
+export interface DirectMessageWithJoins extends DirectMessage {
+  sender?: Pick<Profile, "id" | "full_name" | "role"> | null;
+  recipient?: Pick<Profile, "id" | "full_name" | "role"> | null;
+}
+
+/**
+ * A "conversation" is implicit — the set of DMs between two user IDs.
+ * This type is derived in the API (GROUP BY peer) and is what the inbox
+ * view consumes.
+ */
+export interface ConversationSummary {
+  /** The other party in the conversation (not the caller). */
+  peer: Pick<Profile, "id" | "full_name" | "role">;
+  /** Latest message in the thread (preview). */
+  last_message: DirectMessageWithJoins;
+  /** Count of unread messages from the peer. */
+  unread_count: number;
 }
 
 // ---------- helpers ----------

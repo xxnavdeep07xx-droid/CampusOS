@@ -146,6 +146,33 @@ export function formatDateTime(iso: string | null | undefined): string {
 }
 
 /**
+ * Relative time formatter — returns "just now", "5m ago", "2h ago",
+ * "3d ago", or a short date for older timestamps.
+ *
+ * Used by the messages inbox (conversation list) + activity feeds.
+ */
+export function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diffMs = now - then;
+  if (diffMs < 0) return "just now";
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  // Older than a week — show short date.
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
  * Returns true if the given ISO date is in the past.
  */
 export function isOverdue(iso: string | null | undefined): boolean {

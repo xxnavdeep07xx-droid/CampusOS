@@ -10,6 +10,7 @@ import {
   PinOff,
   Plus,
   Trash2,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -292,6 +293,18 @@ export function AnnouncementsBoard({
                       {a.content}
                     </p>
                   )}
+                  {/* Meeting URL — "Join meeting" CTA */}
+                  {a.meeting_url && (
+                    <a
+                      href={a.meeting_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg border-2 border-slate-900 bg-sky-300 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-900 shadow-[2px_2px_0px_0px_rgba(7,89,133,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_rgba(7,89,133,1)]"
+                    >
+                      <Video className="size-3.5" strokeWidth={2.5} />
+                      Join meeting
+                    </a>
+                  )}
                   <div className="flex items-center justify-between border-t-2 border-slate-100 pt-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     <span>By {authorName}{isAuthor && " (you)"}</span>
                     <span>{formatDateTime(a.created_at)}</span>
@@ -324,6 +337,8 @@ function CreateAnnouncementModal({
   const [content, setContent] = useState("");
   const [tag, setTag] = useState<AnnouncementTag>("general");
   const [isPinned, setIsPinned] = useState(false);
+  // Optional meeting URL (Zoom/Meet/Teams) — for class broadcasts.
+  const [meetingUrl, setMeetingUrl] = useState("");
   // Multi-class broadcast — selected sibling class IDs (NOT including the
   // current classId, which is always posted to).
   const [broadcastTo, setBroadcastTo] = useState<Set<string>>(new Set());
@@ -335,6 +350,7 @@ function CreateAnnouncementModal({
     setContent("");
     setTag("general");
     setIsPinned(false);
+    setMeetingUrl("");
     setBroadcastTo(new Set());
     setCreating(false);
     setError(null);
@@ -374,6 +390,7 @@ function CreateAnnouncementModal({
               content: content.trim(),
               tag,
               isPinned,
+              meetingUrl: meetingUrl.trim() || undefined,
             }),
           }).then((r) => r.json().then((j) => ({ ok: r.ok, json: j, cid })))
         )
@@ -475,6 +492,23 @@ function CreateAnnouncementModal({
                 <Pin className="size-4" />
               </button>
             </div>
+          </div>
+
+          {/* Meeting URL — optional, for class broadcasts with a Zoom/Meet/Teams link */}
+          <div className="space-y-2">
+            <Label htmlFor="ann-meeting">
+              <Video className="inline size-3.5" /> Meeting link (optional)
+            </Label>
+            <Input
+              id="ann-meeting"
+              type="url"
+              placeholder="https://meet.google.com/abc-defg-hij"
+              value={meetingUrl}
+              onChange={(e) => setMeetingUrl(e.target.value)}
+            />
+            <p className="text-[10px] font-medium text-slate-500">
+              Adds a &ldquo;Join meeting&rdquo; button to the announcement.
+            </p>
           </div>
 
           {/* Broadcast to multiple classes — only shown if the teacher has
