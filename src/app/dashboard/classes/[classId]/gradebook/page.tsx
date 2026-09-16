@@ -6,14 +6,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Tag } from "@/components/brutal/section";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradebookTable } from "@/components/brutal/gradebook-table";
+import { GradebookEditableGrid } from "@/components/brutal/gradebook-editable-grid";
 import type { ClassRoom, Profile, GradebookRow } from "@/lib/types";
 
 /**
  * Gradebook page at /dashboard/classes/[classId]/gradebook.
  *
- * Server component. Fetches the class_gradebook view rows for this class
- * (via the admin client — the view joins profiles so it requires school
- * membership, but we re-check authorization here for defense in depth).
+ * Server component. Fetches:
+ *   1. The class_gradebook SQL view (for the summary table with totals +
+ *      percentages + at-risk filter + CSV export).
+ *   2. The class's assignments + per-student submissions (for the inline
+ *      editable grid — teachers can enter/override assignment grades directly
+ *      from the spreadsheet view).
  */
 export default async function GradebookPage({
   params,
@@ -42,11 +46,9 @@ export default async function GradebookPage({
     redirect(`/dashboard/classes/${classId}`);
   }
 
-  // Fetch the gradebook view rows for this class. The view joins profiles
-  // (only students enrolled in the class) so it requires the caller to be
-  // a school member — we use the admin client to bypass RLS so the teacher
-  // can see all students regardless of any edge case in the view's policy.
   const admin = createAdminClient();
+
+  // 1. Fetch the gradebook view rows (summary table).
   const { data: gradebookRows, error } = await admin
     .from("class_gradebook")
     .select("*")
@@ -56,6 +58,36 @@ export default async function GradebookPage({
   const rows = (gradebookRows ?? []) as unknown as GradebookRow[];
   const migrationMissing =
     !!error && /Could not find the table|does not exist/i.test(error.message);
+
+  // 2. Fetch assignments for this class (for the editable grid column headers).
+  const { data: assignmentRows } = await admin
+    .from("assignments")
+    .select("id, title, due_date")
+    .eq("class_id", classId)
+    .order("created_at", { ascending: false });
+  const assignments = (assignmentRows ?? []) as { id: string; title: string; due_date: string | null }[];
+
+  // 3. Fetch enrolled students (for the editable grid row headers).
+  const { data: studentRows } = await admin
+    .from("profiles")
+    .select("id, full_name")
+    .eq("class_id", classId)
+    .eq("role", "student")
+    .order("full_name", { ascending: true });
+  const students = (studentRows ?? []) as { id: string; full_name: string }[];
+
+  // 4. Fetch all submissions for this class's assignments (for the editable
+  //    grid cell values). We fetch assignment_id + student_id + grade + id
+  //    so each cell can PATCH its specific submission.
+  let submissions: { id: string; assignment_id: string; student_id: string; grade: number | null }[] = [];
+  if (assignments.length > 0 && students.length > 0) {
+    const assignmentIds = assignments.map((a) => a.id);
+    const { data: subRows } = await admin
+      .from("submissions")
+      .select("id, assignment_id, student_id, grade")
+      .in("assignment_id", assignmentIds);
+    submissions = (subRows ?? []) as typeof submissions;
+  }
 
   // Aggregate stats for the header cards.
   const totalStudents = rows.length;
@@ -94,7 +126,7 @@ export default async function GradebookPage({
         <p className="text-sm font-medium text-slate-600">
           Auto-aggregated from graded assignments (Phase 2) + completed quiz
           attempts. Use Export to CSV to download a spreadsheet for your
-          records.
+          records. Enter assignment grades directly in the editable grid below.
         </p>
       </div>
 
@@ -148,8 +180,18 @@ export default async function GradebookPage({
             />
           </div>
 
-          {/* The gradebook table */}
+          {/* The gradebook summary table (read-only — totals + percentages + CSV export) */}
           <GradebookTable rows={rows} className={cls.name} />
+
+          {/* Inline editable grid — enter assignment grades directly */}
+          {isTeacher && assignments.length > 0 && students.length > 0 && (
+            <GradebookEditableGrid
+              classId={classId}
+              assignments={assignments}
+              students={students}
+              initialSubmissions={submissions}
+            />
+          )}
         </>
       )}
     </div>

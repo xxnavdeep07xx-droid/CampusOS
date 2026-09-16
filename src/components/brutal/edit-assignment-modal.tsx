@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AssignmentAttachments } from "@/components/brutal/assignment-attachments";
 import type { Assignment } from "@/lib/types";
 import { formatDate } from "@/lib/storage";
 
@@ -188,6 +189,12 @@ export function EditAssignmentModal({
               </p>
             )}
           </div>
+
+          {/* Attachments — files + external links */}
+          <AssignmentAttachments
+            assignmentId={assignment.id}
+            classId={assignment.class_id}
+          />
 
           {error && (
             <div
