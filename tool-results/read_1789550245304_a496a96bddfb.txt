@@ -1,0 +1,909 @@
+     1→/**
+     2→ * Shared CampusOS types.
+     3→ *
+     4→ * These mirror the database tables created in `supabase/migrations/0001_init.sql`.
+     5→ * Keep them in sync if you add columns to the SQL.
+     6→ */
+     7→
+     8→export type UserRole = "principal" | "teacher" | "staff" | "student" | "parent";
+     9→
+    10→export interface School {
+    11→  id: string;
+    12→  name: string;
+    13→  principal_id: string;
+    14→  created_at: string;
+    15→}
+    16→
+    17→export interface Profile {
+    18→  id: string;
+    19→  school_id: string | null;
+    20→  role: UserRole;
+    21→  full_name: string;
+    22→  /**
+    23→   * The primary class this user is enrolled in (students only).
+    24→   *
+    25→   * Added in Phase 2 (migrations/0002_classroom_hub.sql). May be NULL for
+    26→   * Phase 1 students who registered before the column existed — those
+    27→   * students need to be re-invited to a specific class.
+    28→   */
+    29→  class_id?: string | null;
+    30→  /**
+    31→   * Free-text parent/guardian name for student profiles.
+    32→   * Added in migration 0009. Denormalized for quick access — the source of
+    33→   * truth for parent-user linkage is the `parent_student_links` table.
+    34→   */
+    35→  parent_contact?: string | null;
+    36→  /** Free-text parent/guardian phone for student profiles. Added in migration 0009. */
+    37→  parent_phone?: string | null;
+    38→  /**
+    39→   * Long-term free-text notes (IEP, allergies, recurring patterns).
+    40→   * Different from `behavior_incidents` which are time-stamped events.
+    41→   * Added in migration 0009.
+    42→   */
+    43→  behavioral_notes?: string | null;
+    44→  created_at: string;
+    45→}
+    46→
+    47→// ============================================================
+    48→// Behavior incidents (Phase 9 — migration 0009_behavior_incidents.sql)
+    49→// ============================================================
+    50→
+    51→export type IncidentSeverity = "positive" | "concern" | "neutral";
+    52→
+    53→export type IncidentCategory =
+    54→  | "academic"
+    55→  | "behavioral"
+    56→  | "attendance"
+    57→  | "social"
+    58→  | "recognition"
+    59→  | "other";
+    60→
+    61→export interface BehaviorIncident {
+    62→  id: string;
+    63→  student_id: string;
+    64→  class_id: string | null;
+    65→  recorded_by: string;
+    66→  incident_date: string; // ISO date string YYYY-MM-DD
+    67→  severity: IncidentSeverity;
+    68→  category: IncidentCategory;
+    69→  title: string;
+    70→  description: string | null;
+    71→  action_taken: string | null;
+    72→  created_at: string;
+    73→}
+    74→
+    75→/** Joined variant used by list views — includes student + recorder names. */
+    76→export interface BehaviorIncidentWithJoins extends BehaviorIncident {
+    77→  student?: Pick<Profile, "id" | "full_name"> | null;
+    78→  recorder?: Pick<Profile, "id" | "full_name"> | null;
+    79→  classes?: { id: string; name: string } | null;
+    80→}
+    81→
+    82→export interface ClassRoom {
+    83→  id: string;
+    84→  school_id: string;
+    85→  teacher_id: string;
+    86→  name: string;
+    87→  created_at: string;
+    88→}
+    89→
+    90→export interface Invitation {
+    91→  id: string;
+    92→  school_id: string;
+    93→  class_id: string | null;
+    94→  role: UserRole;
+    95→  token: string;
+    96→  is_used: boolean;
+    97→  created_at: string;
+    98→  created_by: string | null;
+    99→}
+   100→
+   101→/**
+   102→ * Build the public-facing URL that an invited user should visit.
+   103→ *
+   104→ * Routes:
+   105→ *   - principal → no token, direct register flow (not used; principals self-register)
+   106→ *   - staff / teacher → /register/teacher?token=...
+   107→ *   - student → /register/student?token=...
+   108→ *
+   109→ * Note: staff and teachers share the same registration flow because staff
+   110→ * members are effectively teachers without an assigned class.
+   111→ */
+   112→export function inviteUrl(token: string, role: UserRole): string {
+   113→  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+   114→  const sub =
+   115→    role === "student" ? "student" : role === "teacher" ? "teacher" : "teacher";
+   116→  return `${site}/register/${sub}?token=${token}`;
+   117→}
+   118→
+   119→// ============================================================
+   120→// Phase 2 — Classroom Hub types
+   121→// ============================================================
+   122→
+   123→export interface Resource {
+   124→  id: string;
+   125→  class_id: string;
+   126→  title: string;
+   127→  description: string;
+   128→  file_path: string;
+   129→  file_size: number | null;
+   130→  mime_type: string | null;
+   131→  created_by: string | null;
+   132→  created_at: string;
+   133→}
+   134→
+   135→export interface Assignment {
+   136→  id: string;
+   137→  class_id: string;
+   138→  title: string;
+   139→  description: string;
+   140→  due_date: string | null;
+   141→  file_path: string | null;
+   142→  created_by: string | null;
+   143→  created_at: string;
+   144→}
+   145→
+   146→// ============================================================
+   147→// Assignment resource attachments (Phase 10 — migration 0010)
+   148→// ============================================================
+   149→
+   150→export type AssignmentResourceKind = "file" | "link";
+   151→
+   152→export interface AssignmentResource {
+   153→  id: string;
+   154→  assignment_id: string;
+   155→  kind: AssignmentResourceKind;
+   156→  storage_path: string | null;
+   157→  url: string | null;
+   158→  label: string;
+   159→  file_size: number | null;
+   160→  mime_type: string | null;
+   161→  position: number;
+   162→  created_at: string;
+   163→}
+   164→
+   165→// ============================================================
+   166→// Lesson plans (Phase 10 — migration 0010)
+   167→// ============================================================
+   168→
+   169→export type LessonPlanStatus = "draft" | "published";
+   170→
+   171→export interface LessonPlan {
+   172→  id: string;
+   173→  teacher_id: string;
+   174→  class_id: string | null;
+   175→  lesson_date: string | null; // ISO date YYYY-MM-DD
+   176→  title: string;
+   177→  body: string | null;
+   178→  objectives: string[];
+   179→  materials: string[];
+   180→  duration_min: number;
+   181→  status: LessonPlanStatus;
+   182→  syllabus_unit_id: string | null;
+   183→  created_at: string;
+   184→  updated_at: string;
+   185→}
+   186→
+   187→/** Joined variant used by list views — includes class + syllabus unit names. */
+   188→export interface LessonPlanWithJoins extends LessonPlan {
+   189→  classes?: { id: string; name: string } | null;
+   190→  syllabus_units?: { id: string; title: string } | null;
+   191→}
+   192→
+   193→// ============================================================
+   194→// Syllabus tracker (Phase 10 — migration 0010)
+   195→// ============================================================
+   196→
+   197→export type SyllabusUnitStatus = "not_started" | "in_progress" | "completed";
+   198→
+   199→export interface SyllabusUnit {
+   200→  id: string;
+   201→  teacher_id: string;
+   202→  class_id: string | null;
+   203→  title: string;
+   204→  description: string | null;
+   205→  total_lessons: number;
+   206→  completed_lessons: number;
+   207→  target_date: string | null; // ISO date
+   208→  status: SyllabusUnitStatus;
+   209→  position: number;
+   210→  created_at: string;
+   211→  updated_at: string;
+   212→}
+   213→
+   214→/** Joined variant — includes class name for cross-class syllabus overviews. */
+   215→export interface SyllabusUnitWithJoins extends SyllabusUnit {
+   216→  classes?: { id: string; name: string } | null;
+   217→}
+   218→
+   219→// ============================================================
+   220→// Teacher personal drive (Phase 10 — migration 0010)
+   221→// ============================================================
+   222→
+   223→export interface TeacherFile {
+   224→  id: string;
+   225→  owner_id: string;
+   226→  file_path: string;
+   227→  name: string;
+   228→  description: string | null;
+   229→  file_size: number | null;
+   230→  mime_type: string | null;
+   231→  folder: string;
+   232→  shared_with_class_id: string | null;
+   233→  created_at: string;
+   234→}
+   235→
+   236→/** Joined variant — includes the class a file is shared with (if any). */
+   237→export interface TeacherFileWithJoins extends TeacherFile {
+   238→  shared_with_class?: { id: string; name: string } | null;
+   239→}
+   240→
+   241→export type SubmissionStatus = "submitted" | "graded";
+   242→
+   243→export interface Submission {
+   244→  id: string;
+   245→  assignment_id: string;
+   246→  student_id: string;
+   247→  file_path: string;
+   248→  status: SubmissionStatus;
+   249→  grade: number | null;
+   250→  feedback: string | null;
+   251→  created_at: string;
+   252→  updated_at: string;
+   253→}
+   254→
+   255→/**
+   256→ * Submission with the student's profile denormalized — used by the teacher's
+   257→ * "Grade Submissions" view.
+   258→ */
+   259→export interface SubmissionWithStudent extends Submission {
+   260→  student?: Pick<Profile, "id" | "full_name"> | null;
+   261→}
+   262→
+   263→/**
+   264→ * Map a file extension or MIME type to a brutalist accent color class.
+   265→ *
+   266→ * Used by ResourceCard + AssignmentCard to color-code by file type.
+   267→ */
+   268→export type FileColor =
+   269→  | "sky"     // PDFs
+   270→  | "emerald" // docs / text
+   271→  | "coral"   // images
+   272→  | "violet"  // video
+   273→  | "amber"   // archives
+   274→  | "slate";  // default
+   275→
+   276→export function fileColorFor(filename: string, mimeType?: string | null): FileColor {
+   277→  const ext = filename.toLowerCase().split(".").pop() ?? "";
+   278→  if (mimeType?.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) {
+   279→    return "coral";
+   280→  }
+   281→  if (mimeType?.startsWith("video/") || ["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) {
+   282→    return "violet";
+   283→  }
+   284→  if (mimeType?.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a"].includes(ext)) {
+   285→    return "violet";
+   286→  }
+   287→  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
+   288→    return "amber";
+   289→  }
+   290→  if (["pdf"].includes(ext)) {
+   291→    return "sky";
+   292→  }
+   293→  if (["doc", "docx", "txt", "md", "rtf", "odt"].includes(ext)) {
+   294→    return "emerald";
+   295→  }
+   296→  if (["xls", "xlsx", "csv", "ppt", "pptx"].includes(ext)) {
+   297→    return "amber";
+   298→  }
+   299→  return "slate";
+   300→}
+   301→
+   302→/**
+   303→ * Map a FileColor → the brutalist bg-* class used for accent bars / icons.
+   304→ */
+   305→export function fileColorBgClass(c: FileColor): string {
+   306→  switch (c) {
+   307→    case "sky":     return "bg-sky-300";
+   308→    case "emerald": return "bg-emerald-500";
+   309→    case "coral":   return "bg-rose-400";
+   310→    case "violet":  return "bg-violet-500";
+   311→    case "amber":   return "bg-amber-400";
+   312→    case "slate":
+   313→    default:        return "bg-slate-400";
+   314→  }
+   315→}
+   316→
+   317→/**
+   318→ * Map a FileColor → a short uppercase label for the file type badge.
+   319→ */
+   320→export function fileColorLabel(c: FileColor): string {
+   321→  switch (c) {
+   322→    case "sky":     return "PDF";
+   323→    case "emerald": return "DOC";
+   324→    case "coral":   return "IMG";
+   325→    case "violet":  return "MEDIA";
+   326→    case "amber":   return "ARCHIVE";
+   327→    case "slate":
+   328→    default:        return "FILE";
+   329→  }
+   330→}
+   331→
+   332→// ============================================================
+   333→// Phase 3 — Digital Attendance & Timetable Management types
+   334→// ============================================================
+   335→
+   336→export type AttendanceStatus = "present" | "absent" | "late";
+   337→
+   338→export interface Attendance {
+   339→  id: string;
+   340→  class_id: string;
+   341→  student_id: string;
+   342→  date: string; // ISO date (YYYY-MM-DD)
+   343→  status: AttendanceStatus;
+   344→  created_at: string;
+   345→  updated_at: string;
+   346→}
+   347→
+   348→/** Attendance row with the student's profile denormalized — used by the teacher's attendance taker. */
+   349→export interface AttendanceWithStudent extends Attendance {
+   350→  student?: Pick<Profile, "id" | "full_name"> | null;
+   351→}
+   352→
+   353→/** 1 = Monday ... 5 = Friday */
+   354→export type DayOfWeek = 1 | 2 | 3 | 4 | 5;
+   355→
+   356→export interface Timetable {
+   357→  id: string;
+   358→  class_id: string;
+   359→  day_of_week: DayOfWeek;
+   360→  start_time: string; // "HH:MM:SS"
+   361→  end_time: string;   // "HH:MM:SS"
+   362→  subject_name: string;
+   363→  created_at: string;
+   364→}
+   365→
+   366→/** Timetable with the class denormalized — used by the teacher's weekly schedule view. */
+   367→export interface TimetableWithClass extends Timetable {
+   368→  classes?: Pick<ClassRoom, "id" | "name"> | null;
+   369→}
+   370→
+   371→// ---------- helpers ----------
+   372→
+   373→export const DAYS_OF_WEEK: { value: DayOfWeek; label: string; short: string }[] = [
+   374→  { value: 1, label: "Monday",    short: "Mon" },
+   375→  { value: 2, label: "Tuesday",   short: "Tue" },
+   376→  { value: 3, label: "Wednesday", short: "Wed" },
+   377→  { value: 4, label: "Thursday",  short: "Thu" },
+   378→  { value: 5, label: "Friday",    short: "Fri" },
+   379→];
+   380→
+   381→export function dayName(d: DayOfWeek): string {
+   382→  return DAYS_OF_WEEK.find((x) => x.value === d)?.label ?? "—";
+   383→}
+   384→
+   385→export function dayShort(d: DayOfWeek): string {
+   386→  return DAYS_OF_WEEK.find((x) => x.value === d)?.short ?? "—";
+   387→}
+   388→
+   389→/**
+   390→ * Attendance status → brutalist bg-* class. Used for the toggle buttons
+   391→ * and the status badges in the attendance history list.
+   392→ */
+   393→export function statusBgClass(s: AttendanceStatus): string {
+   394→  switch (s) {
+   395→    case "present": return "bg-emerald-500";
+   396→    case "absent":  return "bg-rose-500";
+   397→    case "late":    return "bg-amber-400";
+   398→  }
+   399→}
+   400→
+   401→/**
+   402→ * Attendance status → text-friendly label.
+   403→ */
+   404→export function statusLabel(s: AttendanceStatus): string {
+   405→  return s.charAt(0).toUpperCase() + s.slice(1);
+   406→}
+   407→
+   408→/**
+   409→ * Attendance status → text color class for the selected-state of a toggle button.
+   410→ */
+   411→export function statusTextClass(s: AttendanceStatus): string {
+   412→  switch (s) {
+   413→    case "present": return "text-[#FDFBF7]";
+   414→    case "absent":  return "text-[#FDFBF7]";
+   415→    case "late":    return "text-slate-900";
+   416→  }
+   417→}
+   418→
+   419→/**
+   420→ * Parse "HH:MM:SS" → minutes-since-midnight. Returns 0 for null/invalid.
+   421→ */
+   422→export function timeToMinutes(t: string | null | undefined): number {
+   423→  if (!t) return 0;
+   424→  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t);
+   425→  if (!m) return 0;
+   426→  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+   427→}
+   428→
+   429→/**
+   430→ * Format "HH:MM:SS" → "h:mm AM/PM" (e.g. "14:30:00" → "2:30 PM").
+   431→ */
+   432→export function formatTime(t: string | null | undefined): string {
+   433→  if (!t) return "—";
+   434→  const mins = timeToMinutes(t);
+   435→  const h24 = Math.floor(mins / 60);
+   436→  const m = mins % 60;
+   437→  const ampm = h24 >= 12 ? "PM" : "AM";
+   438→  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+   439→  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+   440→}
+   441→
+   442→/**
+   443→ * Convert a Date to YYYY-MM-DD in local timezone (for the `date` column).
+   444→ */
+   445→export function toDateInputValue(d: Date): string {
+   446→  const y = d.getFullYear();
+   447→  const m = String(d.getMonth() + 1).padStart(2, "0");
+   448→  const day = String(d.getDate()).padStart(2, "0");
+   449→  return `${y}-${m}-${day}`;
+   450→}
+   451→
+   452→// ============================================================
+   453→// Phase 4 — Interactive Digital Board (Whiteboard)
+   454→//           & Real-Time Class Announcements
+   455→// ============================================================
+   456→
+   457→/** Announcement tag — used for color-coded badges. */
+   458→export type AnnouncementTag = "important" | "update" | "assignment" | "general";
+   459→
+   460→export interface Announcement {
+   461→  id: string;
+   462→  class_id: string;
+   463→  author_id: string;
+   464→  title: string;
+   465→  content: string;
+   466→  tag: AnnouncementTag;
+   467→  is_pinned: boolean;
+   468→  created_at: string;
+   469→  updated_at: string;
+   470→  /** Joined from profiles — only present when fetched with the relation. */
+   471→  author?: Pick<Profile, "id" | "full_name" | "role"> | null;
+   472→}
+   473→
+   474→export interface ClassMessage {
+   475→  id: string;
+   476→  class_id: string;
+   477→  sender_id: string;
+   478→  content: string;
+   479→  created_at: string;
+   480→  /** Joined from profiles — only present when fetched with the relation. */
+   481→  sender?: Pick<Profile, "id" | "full_name" | "role"> | null;
+   482→}
+   483→
+   484→// ---------- helpers ----------
+   485→
+   486→export const ANNOUNCEMENT_TAGS: {
+   487→  value: AnnouncementTag;
+   488→  label: string;
+   489→  bgClass: string;
+   490→  textClass: string;
+   491→  emoji: string;
+   492→}[] = [
+   493→  { value: "important", label: "Important",        bgClass: "bg-rose-400",   textClass: "text-slate-900",  emoji: "⚠"  },
+   494→  { value: "update",    label: "Update",           bgClass: "bg-sky-300",    textClass: "text-slate-900",  emoji: "✦"  },
+   495→  { value: "assignment",label: "Assignment Alert",  bgClass: "bg-amber-400", textClass: "text-slate-900",  emoji: "✎"  },
+   496→  { value: "general",   label: "General",           bgClass: "bg-slate-300",  textClass: "text-slate-900",  emoji: "•"  },
+   497→];
+   498→
+   499→export function announcementTagMeta(tag: AnnouncementTag | string) {
+   500→  return (
+   501→    ANNOUNCEMENT_TAGS.find((t) => t.value === tag) ?? ANNOUNCEMENT_TAGS[3]
+   502→  );
+   503→}
+   504→
+   505→// ---------- Whiteboard tool types ----------
+   506→
+   507→export type WhiteboardTool =
+   508→  | "pen"
+   509→  | "highlighter"
+   510→  | "eraser"
+   511→  | "rectangle"
+   512→  | "circle"
+   513→  | "line"
+   514→  | "text";
+   515→
+   516→export type WhiteboardBackground = "white" | "grid" | "lined" | "chalkboard";
+   517→
+   518→export interface WhiteboardStroke {
+   519→  tool: WhiteboardTool;
+   520→  color: string;
+   521→  width: number;
+   522→  /** Array of [x, y] points (canvas coords). For shapes, only [start, end] are used. */
+   523→  points: Array<[number, number]>;
+   524→  /** For text tool — the text to render at points[0]. */
+   525→  text?: string;
+   526→}
+   527→
+   528→// ============================================================
+   529→// Phase 5 — Assessments, Quizzes, & Automated Gradebook
+   530→// ============================================================
+   531→
+   532→export type QuestionType = "mcq" | "short_answer";
+   533→export type AttemptStatus = "in_progress" | "completed";
+   534→
+   535→export interface Quiz {
+   536→  id: string;
+   537→  class_id: string;
+   538→  author_id: string;
+   539→  title: string;
+   540→  description: string;
+   541→  time_limit_minutes: number | null;
+   542→  due_date: string | null;
+   543→  is_published: boolean;
+   544→  created_at: string;
+   545→  updated_at: string;
+   546→}
+   547→
+   548→export interface QuizQuestion {
+   549→  id: string;
+   550→  quiz_id: string;
+   551→  question_text: string;
+   552→  question_type: QuestionType;
+   553→  /** For MCQ: array of option strings. NULL for short_answer. */
+   554→  options: string[] | null;
+   555→  correct_answer: string;
+   556→  points: number;
+   557→  position: number;
+   558→  created_at: string;
+   559→}
+   560→
+   561→export interface QuizWithQuestions extends Quiz {
+   562→  questions?: QuizQuestion[];
+   563→  /** Joined from classes — used by the teacher's quiz list. */
+   564→  classes?: { id: string; name: string } | null;
+   565→}
+   566→
+   567→export interface QuizAttempt {
+   568→  id: string;
+   569→  quiz_id: string;
+   570→  student_id: string;
+   571→  /** { "<question_id>": "<student_answer>", ... } */
+   572→  answers: Record<string, string>;
+   573→  score: number;
+   574→  max_score: number;
+   575→  started_at: string;
+   576→  completed_at: string | null;
+   577→  status: AttemptStatus;
+   578→}
+   579→
+   580→export interface QuizAttemptWithQuiz extends QuizAttempt {
+   581→  quiz?: Pick<Quiz, "id" | "title" | "class_id" | "time_limit_minutes" | "due_date"> & {
+   582→    classes?: { id: string; name: string } | null;
+   583→  } | null;
+   584→}
+   585→
+   586→/** A row from the class_gradebook view. */
+   587→export interface GradebookRow {
+   588→  school_id: string;
+   589→  class_id: string;
+   590→  class_name: string;
+   591→  student_id: string;
+   592→  student_name: string;
+   593→  assignment_count: number;
+   594→  assignment_total_points: number;
+   595→  assignment_earned_points: number;
+   596→  quiz_count: number;
+   597→  quiz_total_points: number;
+   598→  quiz_earned_points: number;
+   599→  total_earned: number;
+   600→  total_possible: number;
+   601→  /** 0-100, or null if no graded work yet. */
+   602→  percentage: number | null;
+   603→}
+   604→
+   605→// ---------- helpers ----------
+   606→
+   607→/**
+   608→ * Compute the score for a single question given the student's answer.
+   609→ *
+   610→ * - MCQ: case-insensitive exact match against one of the options.
+   611→ * - short_answer: case-insensitive trimmed exact match against correct_answer.
+   612→ *
+   613→ * Returns the question's `points` if correct, 0 otherwise.
+   614→ */
+   615→export function gradeQuestion(
+   616→  question: Pick<QuizQuestion, "question_type" | "correct_answer" | "points">,
+   617→  studentAnswer: string | undefined
+   618→): number {
+   619→  if (!studentAnswer) return 0;
+   620→  const ans = studentAnswer.trim().toLowerCase();
+   621→  const correct = question.correct_answer.trim().toLowerCase();
+   622→  if (!ans || !correct) return 0;
+   623→  return ans === correct ? question.points : 0;
+   624→}
+   625→
+   626→/**
+   627→ * Compute total score + max score for a quiz attempt.
+   628→ *
+   629→ * Returns { score, maxScore }.
+   630→ */
+   631→export function gradeAttempt(
+   632→  questions: QuizQuestion[],
+   633→  answers: Record<string, string>
+   634→): { score: number; maxScore: number } {
+   635→  let score = 0;
+   636→  let maxScore = 0;
+   637→  for (const q of questions) {
+   638→    maxScore += q.points;
+   639→    score += gradeQuestion(q, answers[q.id]);
+   640→  }
+   641→  return { score, maxScore };
+   642→}
+   643→
+   644→/**
+   645→ * Map a percentage (0-100) to a brutalist bg-* accent color.
+   646→ * Used by the gradebook + my-grades pages.
+   647→ */
+   648→export function gradeColor(pct: number | null | undefined): string {
+   649→  if (pct == null) return "bg-slate-300";
+   650→  if (pct >= 90) return "bg-emerald-500";
+   651→  if (pct >= 75) return "bg-amber-400";
+   652→  if (pct >= 50) return "bg-sky-300";
+   653→  return "bg-rose-400";
+   654→}
+   655→
+   656→/**
+   657→ * Map a percentage to a hex color (for chart fills).
+   658→ */
+   659→export function gradeHex(pct: number | null | undefined): string {
+   660→  if (pct == null) return "#cbd5e1";
+   661→  if (pct >= 90) return "#10b981";
+   662→  if (pct >= 75) return "#f59e0b";
+   663→  if (pct >= 50) return "#7dd3fc";
+   664→  return "#fb7185";
+   665→}
+   666→
+   667→// ============================================================
+   668→// Phase 6 — Fee Management, Invoicing, & Parent Portal
+   669→// ============================================================
+   670→
+   671→export type InvoiceStatus = "pending" | "paid" | "overdue";
+   672→
+   673→export interface FeeInvoice {
+   674→  id: string;
+   675→  school_id: string;
+   676→  student_id: string;
+   677→  title: string;
+   678→  description: string;
+   679→  total_amount: number;       // decimal(10,2) — stored as a JS number
+   680→  due_date: string | null;    // ISO date (YYYY-MM-DD)
+   681→  status: InvoiceStatus;
+   682→  created_by: string | null;
+   683→  created_at: string;
+   684→  updated_at: string;
+   685→  /** Joined from profiles — present when fetched with the relation. */
+   686→  student?: Pick<Profile, "id" | "full_name"> | null;
+   687→}
+   688→
+   689→export interface Payment {
+   690→  id: string;
+   691→  invoice_id: string;
+   692→  amount_paid: number;
+   693→  payment_date: string;
+   694→  payment_method: string;
+   695→  receipt_url: string | null;
+   696→}
+   697→
+   698→export interface GlobalNotice {
+   699→  id: string;
+   700→  school_id: string;
+   701→  title: string;
+   702→  content: string;
+   703→  publish_date: string;
+   704→  is_active: boolean;
+   705→  created_by: string | null;
+   706→  created_at: string;
+   707→}
+   708→
+   709→export interface ParentStudentLink {
+   710→  id: string;
+   711→  parent_id: string;
+   712→  student_id: string;
+   713→  created_at: string;
+   714→  /** Joined from profiles — the student's denormalized profile. */
+   715→  student?: Pick<Profile, "id" | "full_name" | "class_id"> | null;
+   716→}
+   717→
+   718→// ---------- helpers ----------
+   719→
+   720→/**
+   721→ * Map an invoice status → a brutalist bg-* accent color.
+   722→ *   - paid    → emerald (vibrant green)
+   723→ *   - overdue → rose (vibrant red)
+   724→ *   - pending → amber (yellow)
+   725→ */
+   726→export function invoiceStatusBgClass(s: InvoiceStatus): string {
+   727→  switch (s) {
+   728→    case "paid":    return "bg-emerald-500 text-[#FDFBF7]";
+   729→    case "overdue": return "bg-rose-500 text-[#FDFBF7]";
+   730→    case "pending":
+   731→    default:         return "bg-amber-400 text-slate-900";
+   732→  }
+   733→}
+   734→
+   735→export function invoiceStatusLabel(s: InvoiceStatus): string {
+   736→  return s.charAt(0).toUpperCase() + s.slice(1);
+   737→}
+   738→
+   739→/**
+   740→ * Format a decimal amount as a currency string.
+   741→ * Defaults to USD with no symbol-prefix customization — adjust as needed.
+   742→ */
+   743→export function formatCurrency(amount: number | string | null | undefined): string {
+   744→  if (amount == null) return "$0.00";
+   745→  const n = typeof amount === "string" ? parseFloat(amount) : amount;
+   746→  if (Number.isNaN(n)) return "$0.00";
+   747→  return new Intl.NumberFormat("en-US", {
+   748→    style: "currency",
+   749→    currency: "USD",
+   750→    minimumFractionDigits: 2,
+   751→    maximumFractionDigits: 2,
+   752→  }).format(n);
+   753→}
+   754→
+   755→// ============================================================
+   756→// Phase 7 — Library Management & Staff HR (Leave Requests)
+   757→// ============================================================
+   758→
+   759→export type IssueStatus = "issued" | "returned" | "overdue";
+   760→
+   761→export interface Book {
+   762→  id: string;
+   763→  school_id: string;
+   764→  title: string;
+   765→  author: string;
+   766→  isbn: string | null;
+   767→  total_copies: number;
+   768→  available_copies: number;
+   769→  cover_image_url: string | null;
+   770→  created_at: string;
+   771→}
+   772→
+   773→export interface BookIssue {
+   774→  id: string;
+   775→  book_id: string;
+   776→  user_id: string;
+   777→  issue_date: string;
+   778→  due_date: string;
+   779→  return_date: string | null;
+   780→  status: IssueStatus;
+   781→  created_at: string;
+   782→  /** Joined from books — present when fetched with the relation. */
+   783→  book?: Pick<Book, "id" | "title" | "author" | "cover_image_url"> | null;
+   784→  /** Joined from profiles — the borrower. */
+   785→  user?: Pick<Profile, "id" | "full_name" | "role"> | null;
+   786→}
+   787→
+   788→export type LeaveStatus = "pending" | "approved" | "rejected";
+   789→
+   790→export interface LeaveRequest {
+   791→  id: string;
+   792→  staff_id: string;
+   793→  school_id: string;
+   794→  start_date: string;
+   795→  end_date: string;
+   796→  reason: string;
+   797→  status: LeaveStatus;
+   798→  reviewed_by: string | null;
+   799→  reviewed_at: string | null;
+   800→  created_at: string;
+   801→  /** Joined from profiles — the staff member who requested the leave. */
+   802→  staff?: Pick<Profile, "id" | "full_name" | "role"> | null;
+   803→}
+   804→
+   805→// ---------- helpers ----------
+   806→
+   807→export function issueStatusBgClass(s: IssueStatus): string {
+   808→  switch (s) {
+   809→    case "issued":   return "bg-sky-300 text-slate-900";
+   810→    case "returned":  return "bg-emerald-500 text-[#FDFBF7]";
+   811→    case "overdue":   return "bg-rose-500 text-[#FDFBF7]";
+   812→  }
+   813→}
+   814→
+   815→export function issueStatusLabel(s: IssueStatus): string {
+   816→  if (s === "issued") return "Issued";
+   817→  if (s === "returned") return "Returned";
+   818→  return "Overdue";
+   819→}
+   820→
+   821→export function leaveStatusBgClass(s: LeaveStatus): string {
+   822→  switch (s) {
+   823→    case "pending":  return "bg-amber-400 text-slate-900";
+   824→    case "approved": return "bg-emerald-500 text-[#FDFBF7]";
+   825→    case "rejected": return "bg-rose-500 text-[#FDFBF7]";
+   826→  }
+   827→}
+   828→
+   829→export function leaveStatusLabel(s: LeaveStatus): string {
+   830→  return s.charAt(0).toUpperCase() + s.slice(1);
+   831→}
+   832→
+   833→/**
+   834→ * Days remaining until the due date. Negative if overdue.
+   835→ */
+   836→export function daysUntilDue(dueDate: string): number {
+   837→  const today = new Date();
+   838→  today.setHours(0, 0, 0, 0);
+   839→  const due = new Date(dueDate + "T00:00:00");
+   840→  return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+   841→}
+   842→
+   843→// ============================================================
+   844→// Phase 8 — Transport Management & Automated PDF Report Cards
+   845→// ============================================================
+   846→
+   847→export interface TransportRoute {
+   848→  id: string;
+   849→  school_id: string;
+   850→  route_name: string;
+   851→  vehicle_number: string;
+   852→  driver_name: string;
+   853→  driver_phone: string;
+   854→  created_at: string;
+   855→}
+   856→
+   857→export interface TransportStop {
+   858→  id: string;
+   859→  route_id: string;
+   860→  stop_name: string;
+   861→  pickup_time: string | null;  // "HH:MM:SS"
+   862→  drop_time: string | null;   // "HH:MM:SS"
+   863→  position: number;
+   864→  created_at: string;
+   865→}
+   866→
+   867→/** A stop joined with its route — used by the transport timeline. */
+   868→export interface TransportStopWithRoute extends TransportStop {
+   869→  route?: Pick<TransportRoute, "id" | "route_name" | "vehicle_number" | "driver_name" | "driver_phone"> | null;
+   870→}
+   871→
+   872→// ============================================================
+   873→// Staff sub-roles + shared helpers
+   874→// ============================================================
+   875→
+   876→export type StaffRole =
+   877→  | "librarian"
+   878→  | "accountant"
+   879→  | "hr_clerk"
+   880→  | "transport_manager"
+   881→  | "general";
+   882→
+   883→export const STAFF_ROLES: { value: StaffRole; label: string; icon: string; color: string }[] = [
+   884→  { value: "librarian",         label: "Librarian",          icon: "Library",       color: "bg-violet-300" },
+   885→  { value: "accountant",        label: "Accountant",         icon: "DollarSign",   color: "bg-emerald-300" },
+   886→  { value: "hr_clerk",          label: "HR Clerk",           icon: "ClipboardList", color: "bg-amber-300" },
+   887→  { value: "transport_manager", label: "Transport Manager",  icon: "Bus",          color: "bg-sky-300" },
+   888→  { value: "general",           label: "General Staff",      icon: "Users",        color: "bg-slate-300" },
+   889→];
+   890→
+   891→export function staffRoleLabel(sr?: string | null): string {
+   892→  return STAFF_ROLES.find((r) => r.value === sr)?.label ?? "Staff";
+   893→}
+   894→
+   895→export function staffRoleColor(sr?: string | null): string {
+   896→  return STAFF_ROLES.find((r) => r.value === sr)?.color ?? "bg-slate-300";
+   897→}
+   898→
+   899→/** Shared role → color map (was duplicated in 2 files). */
+   900→export function roleColor(role: UserRole): string {
+   901→  switch (role) {
+   902→    case "principal": return "bg-slate-900 text-[#FDFBF7]";
+   903→    case "staff":    return "bg-sky-300 text-slate-900";
+   904→    case "teacher":  return "bg-violet-300 text-slate-900";
+   905→    case "student":  return "bg-rose-300 text-slate-900";
+   906→    case "parent":   return "bg-amber-300 text-slate-900";
+   907→  }
+   908→}
+   909→
