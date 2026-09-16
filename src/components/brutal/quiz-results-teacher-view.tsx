@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Loader2,
   Pencil,
+  PencilRuler,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -150,6 +151,15 @@ export function QuizResultsTeacherView({
           <Badge variant={quiz.is_published ? "emerald" : "outline"}>
             {quiz.is_published ? "Published" : "Draft"}
           </Badge>
+          {isTeacher && (
+            <Link
+              href={`/dashboard/classes/${classId}/quizzes/${quiz.id}/edit`}
+              className="inline-flex items-center gap-1.5 rounded-lg border-2 border-slate-900 bg-amber-300 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-900 shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2.5px_2.5px_0px_0px_rgba(15,23,42,1)]"
+            >
+              <PencilRuler className="size-3.5" strokeWidth={2.5} />
+              Edit questions
+            </Link>
+          )}
           {isTeacher && <EditQuizModal quiz={quiz} />}
           {isTeacher && <DeleteQuizButton quiz={quiz} classId={classId} />}
         </div>
