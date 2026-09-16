@@ -64,3 +64,4 @@ scripts/render_uupm_skill_md.py
 /examples/
 /mini-services/
 /Caddyfile
+supabase/.temp/
