@@ -205,9 +205,9 @@ export function CalendarClient({
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         {/* Calendar grid */}
-        <div className="overflow-hidden rounded-xl border-2 border-slate-900 bg-white shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]">
+        <div className="overflow-x-auto rounded-xl border-2 border-slate-900 bg-white shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]">
           {/* Day headers */}
-          <div className="grid grid-cols-7 border-b-2 border-slate-900 bg-slate-900 text-[#FDFBF7]">
+          <div className="grid grid-cols-7 min-w-[640px] border-b-2 border-slate-900 bg-slate-900 text-[#FDFBF7]">
             {DAY_NAMES.map((d) => (
               <div key={d} className="px-2 py-1.5 text-center text-[10px] font-black uppercase tracking-wider">
                 {d}
@@ -215,7 +215,7 @@ export function CalendarClient({
             ))}
           </div>
           {/* Days */}
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-7 min-w-[640px]">
             {gridDays.map((day, i) => {
               const dayEvents = eventsByDate.get(day.dateStr) ?? [];
               const isToday = day.dateStr === todayStr;

@@ -202,47 +202,49 @@ export function QuizResultsTeacherView({
             </CardContent>
           </Card>
         ) : (
-          <Card className="overflow-hidden">
-            <CardContent className="divide-y-2 divide-slate-200 p-0">
-              <div className="grid grid-cols-12 gap-3 bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-wider text-[#FDFBF7]">
-                <div className="col-span-6">Student</div>
-                <div className="col-span-2 text-right">Score</div>
-                <div className="col-span-2 text-right">Status</div>
-                <div className="col-span-2 text-right">Submitted</div>
-              </div>
-              {attempts.map((a) => {
-                const score = typeof a.score === "number" ? a.score : 0;
-                const maxScore = typeof a.max_score === "number" ? a.max_score : stats.maxScore;
-                const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-                const studentName = a.student?.full_name ?? "Unknown";
-                return (
-                  <div key={a.id} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
-                    <div className="col-span-6 min-w-0">
-                      <div className="truncate text-sm font-bold text-slate-900">{studentName}</div>
+          <div className="overflow-x-auto">
+            <Card className="overflow-hidden min-w-[640px]">
+              <CardContent className="divide-y-2 divide-slate-200 p-0">
+                <div className="grid grid-cols-12 gap-3 bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-wider text-[#FDFBF7]">
+                  <div className="col-span-6">Student</div>
+                  <div className="col-span-2 text-right">Score</div>
+                  <div className="col-span-2 text-right">Status</div>
+                  <div className="col-span-2 text-right">Submitted</div>
+                </div>
+                {attempts.map((a) => {
+                  const score = typeof a.score === "number" ? a.score : 0;
+                  const maxScore = typeof a.max_score === "number" ? a.max_score : stats.maxScore;
+                  const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+                  const studentName = a.student?.full_name ?? "Unknown";
+                  return (
+                    <div key={a.id} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
+                      <div className="col-span-6 min-w-0">
+                        <div className="truncate text-sm font-bold text-slate-900">{studentName}</div>
+                      </div>
+                      <div className="col-span-2 text-right">
+                        <span className={`text-sm font-black ${pct >= 90 ? "text-emerald-700" : pct >= 60 ? "text-amber-700" : "text-rose-700"}`}>
+                          {a.status === "completed" ? `${score}/${maxScore}` : "—"}
+                        </span>
+                        {a.status === "completed" && (
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{pct}%</div>
+                        )}
+                      </div>
+                      <div className="col-span-2 text-right">
+                        {a.status === "completed" ? (
+                          <Badge variant="emerald">Completed</Badge>
+                        ) : (
+                          <Badge variant="amber">In progress</Badge>
+                        )}
+                      </div>
+                      <div className="col-span-2 text-right text-xs text-slate-500">
+                        {a.submitted_at ? formatDate(a.submitted_at) : "—"}
+                      </div>
                     </div>
-                    <div className="col-span-2 text-right">
-                      <span className={`text-sm font-black ${pct >= 90 ? "text-emerald-700" : pct >= 60 ? "text-amber-700" : "text-rose-700"}`}>
-                        {a.status === "completed" ? `${score}/${maxScore}` : "—"}
-                      </span>
-                      {a.status === "completed" && (
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{pct}%</div>
-                      )}
-                    </div>
-                    <div className="col-span-2 text-right">
-                      {a.status === "completed" ? (
-                        <Badge variant="emerald">Completed</Badge>
-                      ) : (
-                        <Badge variant="amber">In progress</Badge>
-                      )}
-                    </div>
-                    <div className="col-span-2 text-right text-xs text-slate-500">
-                      {a.submitted_at ? formatDate(a.submitted_at) : "—"}
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
 
