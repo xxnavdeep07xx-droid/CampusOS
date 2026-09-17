@@ -8,7 +8,7 @@
  * Required env vars (set these in .env.local + Vercel):
  *   GOOGLE_CLIENT_ID       — OAuth client ID from Google Cloud Console
  *   GOOGLE_CLIENT_SECRET   — OAuth client secret
- *   GOOGLE_REDIRECT_URI    — e.g. https://campusos-smoky.vercel.app/api/google-drive/callback
+ *   GOOGLE_REDIRECT_URI    — e.g. https://campusos.indevs.in/api/google-drive/callback
  *
  * Scopes requested:
  *   - https://www.googleapis.com/auth/drive.file — read/write files created
@@ -47,7 +47,7 @@ export function getGoogleRedirectUri(): string {
   const explicit = process.env.GOOGLE_REDIRECT_URI;
   if (explicit) return explicit;
   // Fall back to a sensible default — the caller should pass the origin.
-  return "https://campos-smoky.vercel.app/api/google-drive/callback";
+  return "https://campusos.indevs.in/api/google-drive/callback";
 }
 
 export function isGoogleDriveConfigured(): boolean {

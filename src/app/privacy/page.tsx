@@ -24,7 +24,7 @@ export default function PrivacyPolicyPage() {
               management platform that helps teachers, students, administrators, and parents
               communicate and manage academic activities. This Privacy Policy explains how we
               collect, use, and protect your personal information when you use our platform at
-              campusos-smoky.vercel.app.
+              campusos.indevs.in.
             </p>
             <p>
               By creating an account or using CampusOS, you agree to the data practices described
