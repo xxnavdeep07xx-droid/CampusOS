@@ -93,6 +93,7 @@ export default async function RootLayout({
       className={isDark ? "dark" : ""}
     >
       <head>
+        <meta name="google-site-verification" content="KgDwrre-cXnz-BAH9zn9VQ3xgA0irhwZwgrGMt9x4P4" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body
