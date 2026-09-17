@@ -62,7 +62,7 @@ export function ResponsiveSidebar({
           <div className="flex items-center gap-2.5">
             <Image
               src="/logo.png"
-              alt="CampusOS"
+              alt="Logo"
               width={36}
               height={36}
               className="rounded-lg border-2 border-[#FDFBF7] shadow-[2px_2px_0px_0px_rgba(253,251,247,0.3)]"
@@ -148,7 +148,7 @@ export function ResponsiveSidebar({
           <div className="flex items-center gap-2">
             <Image
               src="/logo.png"
-              alt="CampusOS"
+              alt="Logo"
               width={28}
               height={28}
               className="rounded border-2 border-[#FDFBF7]"

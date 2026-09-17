@@ -328,8 +328,16 @@ export default function LandingPage() {
       <footer className="border-t-[3px] border-slate-900 bg-[#FDFBF7]">
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 px-5 py-8 md:flex-row md:items-center md:px-8">
           <BrutalLogo size="sm" />
+          <div className="flex items-center gap-4">
+            <a href="/privacy" className="text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-slate-900">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-slate-900">
+              Terms of Service
+            </a>
+          </div>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
-            CampusOS · Phase 1 · Auth &amp; Invite-Based Onboarding
+            CampusOS &middot; {new Date().getFullYear().toString()}
           </p>
         </div>
       </footer>
