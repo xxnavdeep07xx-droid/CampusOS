@@ -315,6 +315,55 @@ export interface GoogleDriveConnection {
   updated_at: string;
 }
 
+// ============================================================
+// Chat groups (Phase 15 — migration 0015_chat_groups.sql)
+// ============================================================
+
+export type ChatGroupMemberRole = "admin" | "member";
+
+export interface ChatGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  school_id: string;
+  color: string;
+  class_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatGroupMember {
+  id: string;
+  group_id: string;
+  user_id: string;
+  role: ChatGroupMemberRole;
+  joined_at: string;
+  /** Joined from profiles — only present when fetched with the relation. */
+  profile?: Pick<Profile, "id" | "full_name" | "role"> | null;
+}
+
+export interface ChatGroupMessage {
+  id: string;
+  group_id: string;
+  sender_id: string;
+  body: string;
+  reply_to_id: string | null;
+  created_at: string;
+  /** Joined from profiles — only present when fetched with the relation. */
+  sender?: Pick<Profile, "id" | "full_name" | "role"> | null;
+  /** Joined from chat_group_message_reactions — aggregated count per emoji. */
+  reactions?: { emoji: string; count: number; reactedByMe: boolean }[];
+}
+
+/** Summary used by the groups list view. */
+export interface ChatGroupSummary extends ChatGroup {
+  member_count: number;
+  last_message?: ChatGroupMessage | null;
+  unread_count: number;
+  my_role: ChatGroupMemberRole;
+}
+
 export type SubmissionStatus = "submitted" | "graded";
 
 export interface Submission {
