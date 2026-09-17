@@ -275,12 +275,35 @@ export default async function StudentDetailPage({
           </CardContent>
         </Card>
 
-        {/* Attendance history */}
+        {/* Attendance history with heatmap */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
-              <CalendarCheck className="size-4" /> Recent attendance
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+                <CalendarCheck className="size-4" /> Attendance
+              </CardTitle>
+              {attendanceRate !== null && (
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-24 overflow-hidden rounded-full border-2 border-slate-900 bg-slate-100">
+                    <div
+                      className={`h-full transition-all ${
+                        attendanceRate >= 90 ? "bg-emerald-500"
+                        : attendanceRate >= 75 ? "bg-amber-400"
+                        : "bg-rose-500"
+                      }`}
+                      style={{ width: `${attendanceRate}%` }}
+                    />
+                  </div>
+                  <span className={`text-xs font-black ${
+                    attendanceRate >= 90 ? "text-emerald-700"
+                    : attendanceRate >= 75 ? "text-amber-700"
+                    : "text-rose-700"
+                  }`}>
+                    {attendanceRate}%
+                  </span>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {attendanceRows.length === 0 ? (
@@ -288,24 +311,67 @@ export default async function StudentDetailPage({
                 No attendance records yet.
               </p>
             ) : (
-              <ul className="space-y-1">
-                {attendanceRows.slice(0, 10).map((r) => (
-                  <li key={r.id} className="flex items-center justify-between rounded-lg border-2 border-slate-200 bg-[#FDFBF7] px-3 py-2 text-xs">
-                    <span className="font-bold text-slate-700">{formatDate(r.date)}</span>
-                    <Badge
-                      variant={
-                        r.status === "present"
-                          ? "emerald"
-                          : r.status === "absent"
-                          ? "destructive"
-                          : "amber"
-                      }
-                    >
-                      {r.status}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {/* Heatmap — last 30 records as colored cells */}
+                <div className="mb-4">
+                  <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Last {Math.min(30, attendanceRows.length)} records
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {attendanceRows.slice(0, 30).map((r) => (
+                      <div
+                        key={r.id}
+                        className={`flex size-5 items-center justify-center rounded border border-slate-300 text-[8px] font-black ${
+                          r.status === "present"
+                            ? "bg-emerald-400 text-emerald-950"
+                            : r.status === "absent"
+                            ? "bg-rose-400 text-rose-950"
+                            : "bg-amber-300 text-amber-950"
+                        }`}
+                        title={`${formatDate(r.date)} — ${r.status}`}
+                      >
+                        {r.status === "present" ? "P" : r.status === "absent" ? "A" : "L"}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <span className="size-3 rounded bg-emerald-400" /> Present
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="size-3 rounded bg-amber-300" /> Late
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="size-3 rounded bg-rose-400" /> Absent
+                    </span>
+                  </div>
+                </div>
+
+                {/* Recent records list */}
+                <div className="border-t-2 border-slate-100 pt-3">
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Recent records
+                  </div>
+                  <ul className="space-y-1">
+                    {attendanceRows.slice(0, 8).map((r) => (
+                      <li key={r.id} className="flex items-center justify-between rounded-lg border-2 border-slate-200 bg-[#FDFBF7] px-3 py-2 text-xs">
+                        <span className="font-bold text-slate-700">{formatDate(r.date)}</span>
+                        <Badge
+                          variant={
+                            r.status === "present"
+                              ? "emerald"
+                              : r.status === "absent"
+                              ? "destructive"
+                              : "amber"
+                          }
+                        >
+                          {r.status}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
