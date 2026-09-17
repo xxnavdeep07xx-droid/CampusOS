@@ -1,25 +1,32 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, PencilRuler } from "lucide-react";
+import { ArrowLeft, PencilRuler, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Tag } from "@/components/brutal/section";
+import { WhiteboardBoardGallery } from "./board-gallery-client";
 import { Whiteboard } from "@/components/brutal/whiteboard";
-import type { ClassRoom, Profile } from "@/lib/types";
+import type { ClassRoom, Profile, WhiteboardBoard } from "@/lib/types";
+import { publicStorageUrl, CLASS_MATERIALS_BUCKET, formatDate } from "@/lib/storage";
+
+export const dynamic = "force-dynamic";
 
 /**
  * Whiteboard page at /dashboard/classes/[classId]/whiteboard.
  *
- * Server component. Authorizes the caller (must be a member of the class's
- * school), then renders the Whiteboard client component.
+ * Two modes:
+ *   1. Gallery mode (default): shows a grid of saved boards + "New board" button.
+ *   2. Editor mode (?board=ID): opens a specific board in the full-screen
+ *      Whiteboard component with auto-save.
  *
- * - Teachers + principals/staff: full editing + Export & Share button.
- * - Students: read-only board (canEdit=false) — they can view + download
- *   the PNG locally but cannot push to the class_materials bucket.
+ * Teachers + principals/staff: full editing + create/delete boards.
+ * Students: read-only board view (can view any board but can't edit/save).
  */
 export default async function WhiteboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ classId: string }>;
+  searchParams: Promise<{ board?: string }>;
 }) {
   const { classId } = await params;
   const supabase = await createClient();
@@ -37,21 +44,75 @@ export default async function WhiteboardPage({
   if (!cls) notFound();
   if (!profile || profile.school_id !== cls.school_id) notFound();
 
-  // Authorization: caller must be the teacher, a principal/staff of the
-  // school, OR a student enrolled in this specific class.
   const isTeacher = cls.teacher_id === user.id;
-  const isSchoolAdmin =
-    profile.role === "principal" || profile.role === "staff";
+  const isSchoolAdmin = profile.role === "principal" || profile.role === "staff";
   const isEnrolledStudent =
     profile.role === "student" && profile.class_id === classId;
   if (!isTeacher && !isSchoolAdmin && !isEnrolledStudent) {
     notFound();
   }
 
-  // Only the teacher of THIS class (or a school admin acting on it) can
-  // edit + export. Students get a read-only view.
   const canEdit = isTeacher || isSchoolAdmin;
 
+  // Fetch all boards for this class.
+  const { data: boardRows, error: boardErr } = await supabase
+    .from("whiteboard_boards")
+    .select(`
+      *,
+      creator:profiles!whiteboard_boards_created_by_fkey(id, full_name)
+    `)
+    .eq("class_id", classId)
+    .eq("is_archived", false)
+    .order("updated_at", { ascending: false });
+
+  const boards = (boardRows ?? []) as WhiteboardBoard[];
+
+  const sp = await searchParams;
+  const activeBoardId = sp.board?.trim() || null;
+
+  // If a specific board is requested, fetch it + render the editor.
+  if (activeBoardId) {
+    const { data: activeBoard } = await supabase
+      .from("whiteboard_boards")
+      .select("*")
+      .eq("id", activeBoardId)
+      .eq("class_id", classId)
+      .single();
+    if (!activeBoard) {
+      redirect(`/dashboard/classes/${classId}/whiteboard`);
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href={`/dashboard/classes/${classId}/whiteboard`}
+            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeft className="size-4" />
+            Back to boards
+          </Link>
+          <div className="flex items-center gap-2">
+            <Tag color="bg-sky-300">
+              <PencilRuler className="size-3.5" />
+              {(activeBoard as any).name}
+            </Tag>
+            {!canEdit && <Tag color="bg-amber-200">Student view · read-only</Tag>}
+          </div>
+        </div>
+        <Whiteboard
+          classId={classId}
+          className={cls.name}
+          canEdit={canEdit}
+          boardId={activeBoardId}
+          initialStrokes={(activeBoard as any).strokes_data ?? []}
+          boardName={(activeBoard as any).name}
+        />
+      </div>
+    );
+  }
+
+  // Gallery mode — show the list of boards.
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -76,16 +137,21 @@ export default async function WhiteboardPage({
           )}
         </div>
         <h1 className="text-3xl font-black uppercase tracking-tight text-slate-900 md:text-4xl">
-          Digital board
+          Whiteboard
         </h1>
         <p className="text-sm font-medium text-slate-600">
           {canEdit
-            ? "Draw, write, and share. Use Export & Share with Class to publish a snapshot as a resource students can download."
-            : "Watch your teacher's board in real time. You can download the current snapshot as a PNG."}
+            ? "Create named boards for different topics — your work auto-saves. Click any board to open it."
+            : "Browse your teacher's boards below. Click any board to view it."}
         </p>
       </div>
 
-      <Whiteboard classId={classId} className={cls.name} canEdit={canEdit} />
+      <WhiteboardBoardGallery
+        classId={classId}
+        initialBoards={boards}
+        canEdit={canEdit}
+        migrationMissing={!!boardErr && /Could not find the table|does not exist/i.test(boardErr.message)}
+      />
     </div>
   );
 }

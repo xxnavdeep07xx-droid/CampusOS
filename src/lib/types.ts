@@ -273,6 +273,29 @@ export interface NotificationWithJoins extends Notification {
   actor?: Pick<Profile, "id" | "full_name" | "role"> | null;
 }
 
+// ============================================================
+// Whiteboard boards (Phase 13 — migration 0013_whiteboard_boards.sql)
+// ============================================================
+
+export interface WhiteboardBoard {
+  id: string;
+  class_id: string;
+  created_by: string;
+  name: string;
+  /** JSONB array of WhiteboardStroke objects (defined further below). */
+  strokes_data: unknown | null;
+  thumbnail_path: string | null;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Joined variant — includes the creator's name for the gallery view. */
+export interface WhiteboardBoardWithJoins extends WhiteboardBoard {
+  creator?: Pick<Profile, "id" | "full_name"> | null;
+  classes?: { id: string; name: string } | null;
+}
+
 export type SubmissionStatus = "submitted" | "graded";
 
 export interface Submission {

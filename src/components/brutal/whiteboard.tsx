@@ -32,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { WhiteboardTool, WhiteboardBackground } from "@/lib/types";
+import type { WhiteboardTool, WhiteboardBackground, WhiteboardStroke } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -88,10 +88,19 @@ export function Whiteboard({
   classId,
   className,
   canEdit = true,
+  boardId,
+  initialStrokes = [],
+  boardName,
 }: {
   classId: string;
   className: string;
   canEdit?: boolean;
+  /** If provided, enables auto-save to /api/whiteboard-boards/[boardId]. */
+  boardId?: string;
+  /** Initial strokes loaded from the DB (when boardId is set). */
+  initialStrokes?: WhiteboardStroke[];
+  /** Board name — used for the export title default + header display. */
+  boardName?: string;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,6 +132,58 @@ export function Whiteboard({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState(false);
+
+  // ----- Auto-save state (when boardId is provided) -----
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const strokesRef = useRef<WhiteboardStroke[]>(initialStrokes);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Schedule a debounced save whenever strokes change.
+  const scheduleSave = useCallback(() => {
+    if (!boardId || !canEdit) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveState("idle");
+    saveTimerRef.current = setTimeout(async () => {
+      setSaveState("saving");
+      try {
+        // Generate a thumbnail from the drawCanvas (small JPEG for speed).
+        const drawCanvas = drawCanvasRef.current;
+        let thumbnail: string | undefined;
+        if (drawCanvas) {
+          // Scale down to max 320px wide for the thumbnail.
+          const thumbCanvas = document.createElement("canvas");
+          const scale = Math.min(1, 320 / drawCanvas.width);
+          thumbCanvas.width = drawCanvas.width * scale;
+          thumbCanvas.height = drawCanvas.height * scale;
+          const thumbCtx = thumbCanvas.getContext("2d");
+          if (thumbCtx) {
+            thumbCtx.scale(scale, scale);
+            thumbCtx.drawImage(drawCanvas, 0, 0);
+            thumbnail = thumbCanvas.toDataURL("image/png");
+          }
+        }
+
+        const res = await fetch(`/api/whiteboard-boards/${boardId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            strokesData: strokesRef.current,
+            thumbnail,
+          }),
+        });
+        if (!res.ok) {
+          const json = await res.json();
+          throw new Error(json.error || `Failed (HTTP ${res.status})`);
+        }
+        setSaveState("saved");
+        // Flash "saved" for 2 seconds, then go idle.
+        setTimeout(() => setSaveState("idle"), 2000);
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+        setSaveState("error");
+      }
+    }, 1500); // 1.5s debounce
+  }, [boardId, canEdit]);
 
   // ----- Canvas sizing -----
   const resizeCanvases = useCallback(() => {
@@ -258,7 +319,9 @@ export function Whiteboard({
       historyIdxRef.current++;
     }
     forceRerender((n) => n + 1);
-  }, []);
+    // Trigger auto-save after every stroke commit.
+    scheduleSave();
+  }, [scheduleSave]);
 
   const undo = useCallback(() => {
     if (historyIdxRef.current <= 0) return;
@@ -266,7 +329,8 @@ export function Whiteboard({
     const snapshot = historyRef.current[historyIdxRef.current];
     restoreSnapshot(snapshot);
     forceRerender((n) => n + 1);
-  }, []);
+    scheduleSave();
+  }, [scheduleSave]);
 
   const redo = useCallback(() => {
     if (historyIdxRef.current >= historyRef.current.length - 1) return;
@@ -274,7 +338,8 @@ export function Whiteboard({
     const snapshot = historyRef.current[historyIdxRef.current];
     restoreSnapshot(snapshot);
     forceRerender((n) => n + 1);
-  }, []);
+    scheduleSave();
+  }, [scheduleSave]);
 
   const restoreSnapshot = (dataUrl: string) => {
     const canvas = drawCanvasRef.current;
@@ -762,6 +827,29 @@ export function Whiteboard({
             <Upload className="size-4" />
             Export &amp; Share with Class
           </Button>
+        )}
+        {/* Auto-save status indicator (only when boardId is set) */}
+        {boardId && canEdit && (
+          <div className="ml-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+            {saveState === "saving" && (
+              <span className="flex items-center gap-1 text-amber-600">
+                <span className="size-2 animate-pulse rounded-full bg-amber-500" />
+                Saving…
+              </span>
+            )}
+            {saveState === "saved" && (
+              <span className="flex items-center gap-1 text-emerald-600">
+                <span className="size-2 rounded-full bg-emerald-500" />
+                Saved
+              </span>
+            )}
+            {saveState === "error" && (
+              <span className="flex items-center gap-1 text-rose-600">
+                <span className="size-2 rounded-full bg-rose-500" />
+                Save failed
+              </span>
+            )}
+          </div>
         )}
       </div>
 
