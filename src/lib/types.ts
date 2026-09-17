@@ -296,6 +296,25 @@ export interface WhiteboardBoardWithJoins extends WhiteboardBoard {
   classes?: { id: string; name: string } | null;
 }
 
+// ============================================================
+// Google Drive connections (Phase 14 — migration 0014)
+// ============================================================
+
+export interface GoogleDriveConnection {
+  id: string;
+  teacher_id: string;
+  google_user_id: string;
+  google_email: string | null;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_at: string | null;
+  scope: string | null;
+  picture_url: string | null;
+  connected_at: string;
+  updated_at: string;
+}
+
 export type SubmissionStatus = "submitted" | "graded";
 
 export interface Submission {

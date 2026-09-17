@@ -2,16 +2,19 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Tag } from "@/components/brutal/section";
 import { TeacherDriveClient } from "./teacher-drive-client";
+import { GoogleDriveClient } from "./google-drive-client";
 import type { Profile, TeacherFile } from "@/lib/types";
+import { isGoogleDriveConfigured } from "@/lib/google-drive";
 
 export const dynamic = "force-dynamic";
 
 /**
  * /dashboard/teacher/drive
  *
- * Personal teacher drive — cloud storage not tied to any class.
- * Teachers can keep their presentations, worksheets, and past exam papers
- * here, and optionally share a file with a class.
+ * Personal teacher drive — two storage providers:
+ *   1. CampusOS storage (Supabase class_materials bucket) — always available
+ *   2. Google Drive (optional) — teachers can connect their Google account
+ *      to browse + import files from their Drive
  */
 export default async function TeacherDrivePage() {
   const supabase = await createClient();
@@ -63,6 +66,9 @@ export default async function TeacherDrivePage() {
     files = fileRows as TeacherFile[];
   }
 
+  // Check if Google Drive env vars are configured.
+  const googleConfigured = isGoogleDriveConfigured();
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -72,16 +78,25 @@ export default async function TeacherDrivePage() {
         </h1>
         <p className="text-sm font-medium text-slate-600">
           Keep your presentations, worksheets, and past exam papers here —
-          separate from class resources. Optionally share a file with one of
-          your classes.
+          separate from class resources. Optionally connect Google Drive to
+          import files from your existing Drive.
         </p>
       </div>
 
+      {/* CampusOS storage */}
       <TeacherDriveClient
         initialFiles={files}
         classes={classes}
         migrationMissing={!!error && /Could not find the table|does not exist/i.test(error.message)}
       />
+
+      {/* Google Drive integration (optional) */}
+      <div className="space-y-3 border-t-2 border-slate-200 pt-6">
+        <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">
+          Google Drive
+        </h2>
+        <GoogleDriveClient classes={classes} isConfigured={googleConfigured} />
+      </div>
     </div>
   );
 }
