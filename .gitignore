@@ -65,3 +65,4 @@ scripts/render_uupm_skill_md.py
 /mini-services/
 /Caddyfile
 supabase/.temp/
+client_secret_*.json
