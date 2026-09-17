@@ -260,13 +260,33 @@
 /* Keep colored borders (emerald-400, amber-300, etc.) as-is. */
 
 /* --- Shadows --- */
-/* Brutalist shadows use #0f172a — on dark bg, switch to black with alpha. */
+/* Brutalist shadows use rgba(15,23,42,1) (near-black). On dark backgrounds
+   these are invisible. Override ALL shadow utilities in dark mode to use
+   a lighter color so the brutalist depth effect is preserved. */
 .dark .brutal-hover:hover {
   box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 0.5);
 }
 .dark .brutal-hover:active {
   box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 0.5);
 }
+/* Override inline shadow-[Npx_Npx_0px_0px_rgba(15,23,42,1)] patterns */
+.dark .shadow-\[3px_3px_0px_0px_rgba\(15\,23\,42\,1\)\] {
+  box-shadow: 3px 3px 0px 0px rgba(0, 0, 0, 0.4);
+}
+.dark .shadow-\[4px_4px_0px_0px_rgba\(15\,23\,42\,1\)\] {
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.4);
+}
+.dark .shadow-\[6px_6px_0px_0px_rgba\(15\,23\,42\,1\)\] {
+  box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 0.4);
+}
+.dark .shadow-\[2px_2px_0px_0px_rgba\(15\,23\,42\,1\)\] {
+  box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 0.4);
+}
+.dark .shadow-\[1\.5px_1\.5px_0px_0px_rgba\(15\,23\,42\,1\)\] {
+  box-shadow: 1.5px 1.5px 0px 0px rgba(0, 0, 0, 0.4);
+}
+/* Colored shadows (emerald, sky, violet, etc.) — keep as-is, they're
+   visible on dark backgrounds. */
 
 /* --- Divide lines --- */
 .dark .divide-slate-200 > * + * { border-color: rgba(255, 255, 255, 0.08); }
