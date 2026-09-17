@@ -8,6 +8,7 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getIcon } from "@/lib/lucide-icons";
 import type { NavItem } from "@/components/brutal/dashboard-nav";
+import { ThemeToggle } from "@/components/brutal/theme-toggle";
 
 export function ResponsiveSidebar({
   nav,
@@ -120,8 +121,8 @@ export function ResponsiveSidebar({
         })}
       </nav>
 
-      {/* User badge + sign out */}
-      <div className="border-t-2 border-slate-800 px-3 py-3 shrink-0">
+      {/* User badge + theme toggle + sign out */}
+      <div className="border-t-2 border-slate-800 px-3 py-3 shrink-0 space-y-2">
         <div className="rounded-xl border-2 border-[#FDFBF7]/20 bg-slate-800 px-3 py-2.5">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Signed in as
@@ -133,6 +134,7 @@ export function ResponsiveSidebar({
             {role ?? "no role"}
           </div>
         </div>
+        <ThemeToggle />
         {signOutForm}
       </div>
     </>

@@ -201,3 +201,81 @@
     background-size: 12px 12px;
   }
 }
+
+/* ============================================================
+   DARK MODE OVERRIDES
+   The codebase uses hardcoded Tailwind classes (bg-white, text-slate-900,
+   etc.) instead of CSS-variable-based classes. Rather than touching
+   100+ files, we override the most common hardcoded utilities here
+   when .dark is on <html>.
+   ============================================================ */
+
+/* --- Backgrounds --- */
+.dark .bg-\[\#FDFBF7\] { background-color: #0b1120; }
+.dark .bg-white { background-color: #0f172a; }
+.dark .bg-slate-50 { background-color: #1e293b; }
+.dark .bg-slate-100 { background-color: #1e293b; }
+.dark .bg-slate-200 { background-color: #334155; }
+.dark .bg-slate-800 { background-color: #1e293b; }
+.dark .bg-slate-900 { background-color: #0b1120; }
+
+/* Keep accent backgrounds (amber, emerald, sky, rose, violet) as-is —
+   they're vivid pops that work on dark too. But soften very light tints. */
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.1); }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.1); }
+.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.1); }
+.dark .bg-sky-50 { background-color: rgba(56, 189, 248, 0.1); }
+
+/* --- Text --- */
+.dark .text-slate-900 { color: #fdfbf7; }
+.dark .text-slate-700 { color: #cbd5e1; }
+.dark .text-slate-600 { color: #94a3b8; }
+.dark .text-slate-500 { color: #64748b; }
+.dark .text-slate-400 { color: #475569; }
+.dark .text-slate-300 { color: #334155; }
+
+/* Keep colored text (emerald-700, rose-700, etc.) — they're readable on dark. */
+
+/* --- Borders --- */
+/* Brutalist thick borders — use a lighter color so they're visible on dark. */
+.dark .border-slate-900 { border-color: rgba(255, 255, 255, 0.15); }
+.dark .border-slate-200 { border-color: rgba(255, 255, 255, 0.08); }
+.dark .border-slate-100 { border-color: rgba(255, 255, 255, 0.05); }
+.dark .border-\[\#FDFBF7\] { border-color: rgba(255, 255, 255, 0.15); }
+.dark .border-\[\#FDFBF7\]\/30 { border-color: rgba(255, 255, 255, 0.1); }
+.dark .border-\[\#FDFBF7\]\/20 { border-color: rgba(255, 255, 255, 0.08); }
+
+/* Keep colored borders (emerald-400, amber-300, etc.) as-is. */
+
+/* --- Shadows --- */
+/* Brutalist shadows use #0f172a — on dark bg, switch to black with alpha. */
+.dark .brutal-hover:hover {
+  box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 0.5);
+}
+.dark .brutal-hover:active {
+  box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Divide lines --- */
+.dark .divide-slate-200 > * + * { border-color: rgba(255, 255, 255, 0.08); }
+.dark .divide-slate-100 > * + * { border-color: rgba(255, 255, 255, 0.05); }
+
+/* --- Placeholder text in inputs --- */
+.dark input::placeholder { color: #475569; }
+.dark textarea::placeholder { color: #475569; }
+
+/* --- Select dropdowns --- */
+.dark select { background-color: #0f172a; color: #fdfbf7; }
+.dark select option { background-color: #0f172a; color: #fdfbf7; }
+
+/* --- Scrollbars (dark mode) --- */
+.dark ::-webkit-scrollbar { width: 8px; height: 8px; }
+.dark ::-webkit-scrollbar-track { background: #0b1120; }
+.dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* --- Body background --- */
+.dark body { background-color: #0b1120; color: #fdfbf7; }
+
+/* --- Main content area background --- */
+.dark main { background-color: #0b1120; }

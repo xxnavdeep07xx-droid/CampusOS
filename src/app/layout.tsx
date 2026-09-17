@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { cookies } from "next/headers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,13 +48,53 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+/**
+ * Inline script that runs BEFORE hydration to set the theme class on <html>.
+ * This prevents a flash of the wrong theme (FOUC) on first paint.
+ *
+ * Reads from (in order):
+ *   1. localStorage 'theme' key (set by the ThemeToggle component)
+ *   2. OS preference (prefers-color-scheme)
+ *
+ * The cookie is also set by ThemeToggle so the server can read it, but
+ * this script is the primary mechanism — it's synchronous + runs before
+ * React hydrates.
+ */
+const themeScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  } catch (e) {}
+})();
+`;
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the theme cookie server-side (best-effort — the inline script
+  // is the authoritative source, this just helps with SSR consistency).
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get("theme")?.value;
+  const isDark = themeCookie === "dark";
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={isDark ? "dark" : ""}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
