@@ -220,11 +220,23 @@
 .dark .bg-slate-900 { background-color: #0b1120; }
 
 /* Keep accent backgrounds (amber, emerald, sky, rose, violet) as-is —
-   they're vivid pops that work on dark too. But soften very light tints. */
+   they're vivid pops that work on dark too. But soften very light tints
+   (50 and 100 shades) which are nearly white and look jarring on dark. */
 .dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.1); }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.15); }
+.dark .bg-amber-200 { background-color: rgba(245, 158, 11, 0.2); }
 .dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.1); }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.15); }
+.dark .bg-emerald-200 { background-color: rgba(16, 185, 129, 0.2); }
 .dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.1); }
+.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.15); }
+.dark .bg-rose-200 { background-color: rgba(244, 63, 94, 0.2); }
 .dark .bg-sky-50 { background-color: rgba(56, 189, 248, 0.1); }
+.dark .bg-sky-100 { background-color: rgba(56, 189, 248, 0.15); }
+.dark .bg-sky-200 { background-color: rgba(56, 189, 248, 0.2); }
+.dark .bg-violet-50 { background-color: rgba(139, 92, 246, 0.1); }
+.dark .bg-violet-100 { background-color: rgba(139, 92, 246, 0.15); }
+.dark .bg-violet-200 { background-color: rgba(139, 92, 246, 0.2); }
 
 /* --- Text --- */
 .dark .text-slate-900 { color: #fdfbf7; }
