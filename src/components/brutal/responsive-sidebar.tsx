@@ -89,6 +89,7 @@ export function ResponsiveSidebar({
         {nav.map((item) => {
           const active = isActive(item.href);
           const Icon = getIcon(item.icon);
+          const badge = item.badge ?? 0;
           return (
             <Link
               key={item.href}
@@ -105,7 +106,15 @@ export function ResponsiveSidebar({
                 className={cn("size-4 shrink-0", active ? "text-emerald-400" : "")}
                 strokeWidth={2.5}
               />
-              <span className="truncate">{item.label}</span>
+              <span className="truncate flex-1">{item.label}</span>
+              {badge > 0 && (
+                <span
+                  className="flex size-5 shrink-0 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-[#FDFBF7] shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]"
+                  title={`${badge} unread`}
+                >
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </Link>
           );
         })}

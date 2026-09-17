@@ -7,6 +7,7 @@
  */
 import {
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   Bus,
@@ -32,6 +33,7 @@ import {
 
 export const ICON_MAP: Record<string, LucideIcon> = {
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   Bus,

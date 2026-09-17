@@ -238,6 +238,41 @@ export interface TeacherFileWithJoins extends TeacherFile {
   shared_with_class?: { id: string; name: string } | null;
 }
 
+// ============================================================
+// Notifications (Phase 12 — migration 0012_notifications.sql)
+// ============================================================
+
+export type NotificationType =
+  | "submission"
+  | "direct_message"
+  | "leave_request"
+  | "announcement"
+  | "behavior_incident"
+  | "quiz_submission"
+  | "resource_shared"
+  | "assignment_created"
+  | "quiz_published";
+
+export interface Notification {
+  id: string;
+  recipient_id: string;
+  actor_id: string | null;
+  school_id: string | null;
+  type: NotificationType;
+  entity_type: string | null;
+  entity_id: string | null;
+  title: string;
+  body: string | null;
+  link_url: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+/** Joined variant — includes the actor's name for avatar display. */
+export interface NotificationWithJoins extends Notification {
+  actor?: Pick<Profile, "id" | "full_name" | "role"> | null;
+}
+
 export type SubmissionStatus = "submitted" | "graded";
 
 export interface Submission {

@@ -45,6 +45,8 @@ export type NavItem = {
   href: string;
   label: string;
   icon: string; // icon name, not the component itself
+  /** Optional badge count (e.g. unread notifications). Renders as a red pill. */
+  badge?: number;
 };
 
 /**

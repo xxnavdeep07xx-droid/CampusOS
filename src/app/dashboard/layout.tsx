@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   Bus,
@@ -27,6 +28,7 @@ import { GlobalNoticeBanner } from "@/components/brutal/global-notice-banner";
 import { ResponsiveSidebar } from "@/components/brutal/responsive-sidebar";
 import { signOutAction } from "@/app/login/actions";
 import type { Profile, UserRole, GlobalNotice } from "@/lib/types";
+import type { NavItem } from "@/components/brutal/dashboard-nav";
 
 /**
  * DashboardLayout — the authenticated app shell.
@@ -85,9 +87,38 @@ export default async function DashboardLayout({
   const notices = (noticeRows ?? []) as unknown as GlobalNotice[];
   const role: UserRole | null = (profile as Profile | null)?.role ?? null;
 
+  // Fetch unread notification count for the sidebar badge. Best-effort —
+  // if the notifications table doesn't exist yet (migration 0012 missing),
+  // we just show no badge.
+  let unreadNotificationCount = 0;
+  if (user) {
+    try {
+      const { count, error: notifErr } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("recipient_id", user.id)
+        .is("read_at", null);
+      if (!notifErr) {
+        unreadNotificationCount = count ?? 0;
+      }
+    } catch {
+      // tolerate missing table on fresh deploys
+    }
+  }
+
   // Build the nav based on role + staff sub-role.
   const staffRole = (profile as Profile & { staff_role?: string | null } | null)?.staff_role ?? null;
   const nav = buildNav(role, staffRole);
+
+  // If the user has unread notifications, attach a badge to the
+  // Notifications nav item (if their role has one).
+  if (unreadNotificationCount > 0) {
+    for (const item of nav) {
+      if (item.href === "/dashboard/teacher/notifications") {
+        item.badge = unreadNotificationCount;
+      }
+    }
+  }
 
   return (
     <div className="flex h-screen flex-col bg-[#FDFBF7] overflow-hidden">
@@ -124,7 +155,7 @@ export default async function DashboardLayout({
   );
 }
 
-function buildNav(role: UserRole | null, staffRole?: string | null) {
+function buildNav(role: UserRole | null, staffRole?: string | null): NavItem[] {
   const common = [
     {
       href: "/dashboard",
@@ -183,6 +214,7 @@ function buildNav(role: UserRole | null, staffRole?: string | null) {
   if (role === "teacher") {
     return [
       ...common,
+      { href: "/dashboard/teacher/notifications", label: "Notifications", icon: "Bell" as const },
       { href: "/dashboard/teacher", label: "My Classes", icon: "GraduationCap" as const },
       { href: "/dashboard/teacher/grading", label: "Grading Queue", icon: "ClipboardList" as const },
       { href: "/dashboard/teacher/lessons", label: "Lesson Plans", icon: "BookOpen" as const },
