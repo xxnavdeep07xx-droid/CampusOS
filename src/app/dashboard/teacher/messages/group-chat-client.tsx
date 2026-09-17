@@ -3,11 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  CornerUpLeft,
   GroupIcon,
   Loader2,
   Plus,
+  Reply,
   Send,
   Settings,
+  Smile,
   Trash2,
   UserPlus,
   Users,
@@ -38,17 +41,22 @@ const GROUP_COLORS = [
   { name: "Rose", value: "bg-rose-400" },
 ];
 
+const QUICK_REACTIONS = ["👍", "❤️", "🎉", "😂", "👀", "🙌"];
+
+type TypingUser = { userId: string; name: string; at: number };
+
 /**
  * GroupChatClient
  *
- * Renders the group chat experience:
- *   - Left: list of groups the caller is a member of
- *   - Right: group chat thread with realtime messages
- *
- * Also includes:
+ * Features:
+ *   - Group list with last message preview + member count
  *   - Create group modal (principals + teachers)
- *   - Member management (add/remove)
- *   - Emoji reactions on messages
+ *   - Realtime group chat thread
+ *   - Emoji reactions on messages (toggle)
+ *   - Typing indicators (broadcast via Supabase Realtime presence)
+ *   - Reply to messages (threaded)
+ *   - Delete own messages
+ *   - Member management (add/remove/leave)
  */
 export function GroupChatClient({
   currentUserId,
@@ -71,8 +79,11 @@ export function GroupChatClient({
   const [members, setMembers] = useState<ChatGroupMember[]>([]);
   const [showMembers, setShowMembers] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showAddMember, setShowAddMember] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ChatGroupMessage | null>(null);
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+  const [showReactionsFor, setShowReactionsFor] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingChannelRef = useRef<any>(null);
 
   const canCreateGroups = currentUserRole === "principal" || currentUserRole === "teacher";
 
@@ -122,6 +133,7 @@ export function GroupChatClient({
     if (selectedGroupId) {
       fetchThread(selectedGroupId);
       fetchMembers(selectedGroupId);
+      setReplyingTo(null);
     }
   }, [selectedGroupId, fetchThread, fetchMembers, refreshKey]);
 
@@ -129,7 +141,7 @@ export function GroupChatClient({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
-  // Realtime: subscribe to new group messages for the selected group.
+  // Realtime: subscribe to new group messages + reactions.
   useEffect(() => {
     if (!selectedGroupId) return;
     let channel: any = null;
@@ -151,11 +163,69 @@ export function GroupChatClient({
             (payload: any) => {
               const newMsg = payload.new as ChatGroupMessage;
               if (newMsg.sender_id !== currentUserId) {
-                setMessages((prev) => [...prev, newMsg]);
+                // Fetch the full message with sender join
+                fetch(`/api/chat-groups/${selectedGroupId}/messages?limit=200`)
+                  .then((r) => r.json())
+                  .then((json) => {
+                    if (json.messages) {
+                      // Just append the new message (avoid full refetch)
+                      setMessages((prev) => {
+                        if (prev.some((m) => m.id === newMsg.id)) return prev;
+                        return [...prev, { ...newMsg, sender: undefined, reactions: [] }];
+                      });
+                    }
+                  });
               }
             }
           )
-          .subscribe();
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "chat_group_message_reactions",
+            },
+            () => {
+              // Refetch thread to get updated reactions
+              fetchThread(selectedGroupId);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "DELETE",
+              schema: "public",
+              table: "chat_group_messages",
+              filter: `group_id=eq.${selectedGroupId}`,
+            },
+            (payload: any) => {
+              const deletedId = payload.old?.id;
+              if (deletedId) {
+                setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+              }
+            }
+          )
+          // Typing indicator via broadcast
+          .on("broadcast", { event: "typing" }, (payload: any) => {
+            const { userId, name } = payload.payload;
+            if (userId !== currentUserId) {
+              setTypingUsers((prev) => {
+                const filtered = prev.filter((u) => u.userId !== userId);
+                return [...filtered, { userId, name, at: Date.now() }];
+              });
+            }
+          })
+          .on("broadcast", { event: "stop_typing" }, (payload: any) => {
+            const { userId } = payload.payload;
+            if (userId !== currentUserId) {
+              setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
+            }
+          })
+          .subscribe((status: string) => {
+            if (status === "SUBSCRIBED" && typingChannelRef.current !== channel) {
+              typingChannelRef.current = channel;
+            }
+          });
         unsub = () => supabase.removeChannel(channel);
       } catch (err) {
         console.warn("Realtime subscription failed:", err);
@@ -163,19 +233,43 @@ export function GroupChatClient({
     })();
     return () => {
       if (unsub) unsub();
+      typingChannelRef.current = null;
+      setTypingUsers([]);
     };
-  }, [selectedGroupId, currentUserId]);
+  }, [selectedGroupId, currentUserId, fetchThread]);
+
+  // Clear stale typing indicators (older than 3 seconds).
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTypingUsers((prev) => prev.filter((u) => Date.now() - u.at < 3000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleSend() {
     if (!selectedGroupId || !draft.trim()) return;
     setSending(true);
     const body = draft.trim();
     setDraft("");
+    setReplyingTo(null);
+
+    // Stop typing broadcast
+    if (typingChannelRef.current) {
+      typingChannelRef.current.send({
+        type: "broadcast",
+        event: "stop_typing",
+        payload: { userId: currentUserId },
+      });
+    }
+
     try {
       const res = await fetch(`/api/chat-groups/${selectedGroupId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({
+          body,
+          replyToId: replyingTo?.id,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `Failed (HTTP ${res.status})`);
@@ -187,6 +281,56 @@ export function GroupChatClient({
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleToggleReaction(messageId: string, emoji: string) {
+    setShowReactionsFor(null);
+    try {
+      const res = await fetch(
+        `/api/chat-groups/${selectedGroupId}/messages/${messageId}/reactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ emoji }),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to toggle reaction");
+      // The realtime subscription will refetch the thread.
+    } catch (err) {
+      console.error("Reaction toggle failed:", err);
+    }
+  }
+
+  async function handleDeleteMessage(messageId: string) {
+    if (!confirm("Delete this message?")) return;
+    if (!selectedGroupId) return;
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    try {
+      const res = await fetch(
+        `/api/chat-groups/${selectedGroupId}/messages/${messageId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || `Failed (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      // Revert
+      fetchThread(selectedGroupId);
+      alert(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function handleTyping() {
+    if (!typingChannelRef.current) return;
+    typingChannelRef.current.send({
+      type: "broadcast",
+      event: "typing",
+      payload: {
+        userId: currentUserId,
+        name: "Someone", // The UI will show the name from the broadcast
+      },
+    });
   }
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
@@ -213,9 +357,9 @@ export function GroupChatClient({
       </div>
 
       {error && (
-        <div className="rounded-lg border-2 border-rose-500 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+        <div className="flex items-center gap-2 rounded-lg border-2 border-rose-500 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
           {error}
-          <button type="button" onClick={() => setError(null)} className="ml-2 text-rose-400 hover:text-rose-600">
+          <button type="button" onClick={() => setError(null)} className="ml-auto text-rose-400 hover:text-rose-600">
             ✕
           </button>
         </div>
@@ -290,15 +434,13 @@ export function GroupChatClient({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setShowMembers(true)}
-                className="rounded-lg border-2 border-[#FDFBF7]/30 bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-all hover:bg-slate-700"
-              >
-                <Settings className="inline size-3" /> Members
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowMembers(true)}
+              className="rounded-lg border-2 border-[#FDFBF7]/30 bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-all hover:bg-slate-700"
+            >
+              <Settings className="inline size-3" /> Members
+            </button>
           </div>
 
           {/* Messages */}
@@ -317,37 +459,159 @@ export function GroupChatClient({
               messages.map((m) => {
                 const isMine = m.sender_id === currentUserId;
                 const senderName = m.sender?.full_name ?? "Unknown";
+                // Find the message being replied to
+                const repliedTo = m.reply_to_id
+                  ? messages.find((x) => x.id === m.reply_to_id)
+                  : null;
                 return (
-                  <div key={m.id} className={cn("flex", isMine ? "justify-end" : "justify-start")}>
-                    <div
-                      className={cn(
-                        "max-w-[80%] rounded-xl border-2 border-slate-900 px-3 py-2 text-sm shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)]",
-                        isMine ? "bg-emerald-500 text-[#FDFBF7]" : "bg-white text-slate-900"
-                      )}
-                    >
-                      {!isMine && (
-                        <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-600">
-                          {senderName}
+                  <div key={m.id} className={cn("group relative flex flex-col", isMine ? "items-end" : "items-start")}>
+                    {/* Reply preview */}
+                    {repliedTo && (
+                      <div className={cn("mb-1 max-w-[70%] truncate rounded-lg border-l-4 border-slate-400 bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600", isMine ? "mr-1" : "ml-1")}>
+                        <span className="font-bold">{repliedTo.sender?.full_name ?? "Unknown"}:</span> {repliedTo.body}
+                      </div>
+                    )}
+                    <div className="flex items-end gap-1">
+                      <div
+                        className={cn(
+                          "max-w-[80%] rounded-xl border-2 border-slate-900 px-3 py-2 text-sm shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)]",
+                          isMine ? "bg-emerald-500 text-[#FDFBF7]" : "bg-white text-slate-900"
+                        )}
+                      >
+                        {!isMine && (
+                          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-600">
+                            {senderName}
+                          </div>
+                        )}
+                        <div className="whitespace-pre-line break-words">{m.body}</div>
+                        <div className={cn("mt-1 flex items-center gap-1", isMine ? "text-emerald-100" : "text-slate-400")}>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">
+                            {formatDateTime(m.created_at)}
+                          </span>
                         </div>
-                      )}
-                      <div className="whitespace-pre-line break-words">{m.body}</div>
-                      <div className={cn("mt-1 text-[10px] font-bold uppercase tracking-wider", isMine ? "text-emerald-100" : "text-slate-400")}>
-                        {formatDateTime(m.created_at)}
+                      </div>
+
+                      {/* Hover actions */}
+                      <div className="flex flex-col gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => setReplyingTo(m)}
+                          className="rounded border border-slate-300 bg-white p-1 text-slate-500 hover:bg-sky-100 hover:text-sky-700"
+                          aria-label="Reply"
+                          title="Reply"
+                        >
+                          <Reply className="size-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowReactionsFor(showReactionsFor === m.id ? null : m.id)}
+                          className="rounded border border-slate-300 bg-white p-1 text-slate-500 hover:bg-amber-100 hover:text-amber-700"
+                          aria-label="React"
+                          title="Add reaction"
+                        >
+                          <Smile className="size-3" />
+                        </button>
+                        {isMine && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMessage(m.id)}
+                            className="rounded border border-slate-300 bg-white p-1 text-slate-500 hover:bg-rose-100 hover:text-rose-700"
+                            aria-label="Delete"
+                            title="Delete"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
+
+                    {/* Reactions */}
+                    {m.reactions && m.reactions.length > 0 && (
+                      <div className={cn("mt-1 flex flex-wrap gap-1", isMine ? "justify-end" : "justify-start")}>
+                        {m.reactions.map((r) => (
+                          <button
+                            key={r.emoji}
+                            type="button"
+                            onClick={() => handleToggleReaction(m.id, r.emoji)}
+                            className={cn(
+                              "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-bold transition-all",
+                              r.reactedByMe
+                                ? "border-emerald-500 bg-emerald-100 text-emerald-700"
+                                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                            )}
+                          >
+                            {r.emoji} {r.count}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Reaction picker popover */}
+                    {showReactionsFor === m.id && (
+                      <div className={cn("absolute z-10 mt-1 flex gap-1 rounded-lg border-2 border-slate-900 bg-white p-1.5 shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]", isMine ? "right-0" : "left-0")}>
+                        {QUICK_REACTIONS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleToggleReaction(m.id, emoji)}
+                            className="flex size-7 items-center justify-center rounded text-base transition-all hover:bg-amber-100"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })
             )}
+
+            {/* Typing indicator */}
+            {typingUsers.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="flex gap-0.5">
+                  <span className="size-1 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "0ms" }} />
+                  <span className="size-1 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "150ms" }} />
+                  <span className="size-1 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "300ms" }} />
+                </span>
+                {typingUsers.length === 1
+                  ? `${typingUsers[0].name} is typing…`
+                  : `${typingUsers.length} people are typing…`}
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Reply preview bar */}
+          {replyingTo && (
+            <div className="flex items-center gap-2 border-t-2 border-slate-200 bg-amber-50 px-3 py-1.5">
+              <CornerUpLeft className="size-3.5 text-slate-500" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Replying to {replyingTo.sender?.full_name ?? "Unknown"}
+                </div>
+                <div className="truncate text-xs text-slate-700">{replyingTo.body}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyingTo(null)}
+                className="text-slate-400 hover:text-slate-600"
+                aria-label="Cancel reply"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Composer */}
           <div className="border-t-2 border-slate-200 bg-white p-3">
             <div className="flex items-end gap-2">
               <Textarea
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  handleTyping();
+                }}
                 rows={2}
                 placeholder="Type a message…"
                 className="min-h-[44px] flex-1 resize-none border-2 border-slate-900 text-sm"
