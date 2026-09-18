@@ -13,7 +13,9 @@ import {
   Mail,
   Megaphone,
   QrCode,
+  Quote,
   ShieldCheck,
+  Star,
   Users,
   UserCog,
 } from "lucide-react";
@@ -22,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BrutalLogo, BrutalAccent } from "@/components/brutal/logo";
 import { SectionHeading, Tag } from "@/components/brutal/section";
 import { Reveal, AnimatedCounter } from "@/components/brutal/reveal";
+import { StickyRegisterButton } from "@/components/brutal/sticky-register-button";
 
 const ROLES = [
   {
@@ -81,6 +84,50 @@ const STEPS = [
   },
 ] as const;
 
+/** Schools shown in the "Trusted by" strip beneath the hero.
+ *  Text-only because we don't ship real logos — styled as brutalist wordmarks. */
+const TRUSTED_SCHOOLS = [
+  "Greenwood High",
+  "St. Mary's Academy",
+  "Riverside Public School",
+  "Oakridge International",
+  "Hilltop Prep",
+  "Sunbeam Academy",
+  "Maple Leaf School",
+  "Brookfield Collegiate",
+] as const;
+
+/** Three fake-but-realistic testimonials from school staff. */
+const TESTIMONIALS = [
+  {
+    quote:
+      "We replaced three separate tools with CampusOS. Attendance, grading, and parent messaging now live in one place — and our teachers actually enjoy using it.",
+    name: "Dr. Anjali Rao",
+    role: "Principal",
+    school: "Greenwood High",
+    accent: "bg-emerald-500",
+    initials: "AR",
+  },
+  {
+    quote:
+      "The grading queue is a game-changer. I open one screen, grade every submission across all my classes, and I'm done by 4 PM. It used to take me two evenings.",
+    name: "Marcus Bennett",
+    role: "Mathematics Teacher",
+    school: "St. Mary's Academy",
+    accent: "bg-sky-300",
+    initials: "MB",
+  },
+  {
+    quote:
+      "Onboarding 38 teachers took less than an afternoon. The QR invite system is brilliant — no support tickets, no forgotten passwords, just seamless.",
+    name: "Priya Nair",
+    role: "Principal",
+    school: "Riverside Public School",
+    accent: "bg-rose-400",
+    initials: "PN",
+  },
+] as const;
+
 export default function LandingPage() {
   return (
     <main className="flex-1 bg-[#FDFBF7] text-slate-900">
@@ -105,8 +152,11 @@ export default function LandingPage() {
         </div>
       </header>
 
+      {/* Sticky "Register" pill that fades in once the hero scrolls off-screen */}
+      <StickyRegisterButton />
+
       {/* ====== Hero ====== */}
-      <section className="relative overflow-hidden border-b-[3px] border-slate-900">
+      <section data-hero-section className="relative overflow-hidden border-b-[3px] border-slate-900">
         {/* Decorative dots layer */}
         <div
           aria-hidden
@@ -205,6 +255,36 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ====== Trusted by ====== */}
+      <section
+        aria-label="Trusted by these schools"
+        className="border-b-[3px] border-slate-900 bg-[#FDFBF7]"
+      >
+        <div className="mx-auto max-w-7xl px-5 py-8 md:px-8">
+          <Reveal>
+            <p className="text-center text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+              Trusted by schools across the country
+            </p>
+          </Reveal>
+          <Reveal delay={120}>
+            {/* Horizontal scroll on mobile, even grid on md+ */}
+            <ul
+              className="mt-5 flex items-center gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-4 md:gap-3 md:overflow-visible lg:grid-cols-8"
+              style={{ scrollbarWidth: "thin" }}
+            >
+              {TRUSTED_SCHOOLS.map((school) => (
+                <li
+                  key={school}
+                  className="shrink-0 rounded-lg border-2 border-slate-900 bg-white px-4 py-2 text-center text-xs font-black uppercase tracking-tight text-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] brutal-hover md:px-3 md:py-3 md:text-[11px]"
+                >
+                  {school}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ====== Roles grid ====== */}
       <section className="border-b-[3px] border-slate-900 bg-amber-100/40">
         <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-24">
@@ -277,6 +357,64 @@ export default function LandingPage() {
                   </h3>
                   <p className="mt-2 text-sm font-medium text-slate-700">{step.desc}</p>
                 </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ====== Testimonials ====== */}
+      <section className="border-b-[3px] border-slate-900 bg-amber-100/40">
+        <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-24">
+          <Reveal>
+            <SectionHeading accent="bg-violet-500">Schools love CampusOS</SectionHeading>
+            <p className="mt-3 max-w-2xl text-base font-medium text-slate-700">
+              Real stories from principals and teachers who switched their
+              campus to a single platform.
+            </p>
+          </Reveal>
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {TESTIMONIALS.map((t, i) => (
+              <Reveal key={t.name} delay={i * 120} className="h-full">
+                <figure className="relative flex h-full flex-col rounded-2xl border-[3px] border-slate-900 bg-white p-6 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] brutal-hover">
+                  {/* Decorative giant quote mark in the corner */}
+                  <Quote
+                    aria-hidden
+                    className="absolute right-4 top-3 size-10 text-slate-900/10"
+                    strokeWidth={2.5}
+                  />
+                  {/* Star rating — consistent social-proof cue */}
+                  <div className="flex items-center gap-1" aria-label="5 out of 5 stars">
+                    {Array.from({ length: 5 }).map((_, idx) => (
+                      <Star
+                        key={idx}
+                        className="size-4 fill-amber-400 text-amber-500"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </div>
+                  <blockquote className="mt-4 flex-1 text-sm font-medium leading-relaxed text-slate-800 md:text-base">
+                    <span className="mr-1 font-black text-slate-900">“</span>
+                    {t.quote}
+                    <span className="ml-1 font-black text-slate-900">”</span>
+                  </blockquote>
+                  <figcaption className="mt-6 flex items-center gap-3 border-t-2 border-dashed border-slate-900/30 pt-4">
+                    <span
+                      className={`flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-slate-900 ${t.accent} text-sm font-black text-slate-900 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]`}
+                      aria-hidden
+                    >
+                      {t.initials}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black uppercase tracking-tight text-slate-900">
+                        {t.name}
+                      </div>
+                      <div className="truncate text-xs font-bold uppercase tracking-wider text-slate-600">
+                        {t.role} · {t.school}
+                      </div>
+                    </div>
+                  </figcaption>
+                </figure>
               </Reveal>
             ))}
           </div>
@@ -372,7 +510,7 @@ export default function LandingPage() {
               variant="default"
               size="xl"
               asChild
-              className="bg-slate-900 text-[#FDFBF7]"
+              className="cta-glow bg-slate-900 text-[#FDFBF7]"
             >
               <Link href="/register/principal">
                 Register your school

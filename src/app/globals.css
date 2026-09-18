@@ -200,6 +200,66 @@
     background-image: radial-gradient(#0f172a 1.5px, transparent 1.5px);
     background-size: 12px 12px;
   }
+
+  /* CTA glow on hover — a soft emerald halo that pulses out from the button.
+     Layered on top of the existing brutal-shadow for combined depth + glow. */
+  .cta-glow {
+    transition: box-shadow 200ms ease, transform 120ms ease;
+  }
+  .cta-glow:hover {
+    box-shadow:
+      4px 4px 0px 0px #0f172a,
+      0px 0px 0px 4px rgba(16, 185, 129, 0.35),
+      0px 0px 28px 4px rgba(16, 185, 129, 0.55);
+  }
+  .cta-glow:active {
+    box-shadow:
+      2px 2px 0px 0px #0f172a,
+      0px 0px 0px 2px rgba(16, 185, 129, 0.25);
+  }
+
+  /* Sticky header button — slides/fades in once the user scrolls past
+     the hero. Two parts: the wrapper that controls visibility and the
+     pill that does the brutal-shadow jump on hover. */
+  .sticky-cta {
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+  .sticky-cta-hidden {
+    opacity: 0;
+    transform: translateY(-12px);
+    pointer-events: none;
+  }
+}
+
+/* ============================================================
+   prefers-reduced-motion support
+   ============================================================
+   Users who set `reduce` at the OS level get:
+     - all CSS transitions / animations disabled
+     - scroll-driven entrance animations rendered in their final state
+     - the StickyRegisterButton appears immediately (no slide-in)
+   JS-side checks in <Reveal> / <AnimatedCounter> / <StickyRegisterButton>
+   short-circuit their effects as well. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .brutal-hover:hover,
+  .brutal-hover:active {
+    transform: none;
+  }
+  .cta-glow:hover {
+    transition: none;
+  }
+  .sticky-cta {
+    transition: opacity 0ms linear;
+    transform: none !important;
+  }
 }
 
 /* ============================================================
