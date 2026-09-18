@@ -468,6 +468,7 @@ const PAGE_CSS = `
     display:inline-block; font-family:'IBM Plex Mono',monospace; font-weight:700;
     font-size:12px; letter-spacing:.04em; text-transform:uppercase;
     padding:4px 10px; border:2px solid var(--line); border-radius:6px; background:var(--surface-2);
+    margin-top:40px;
   }
   .kicker{font-family:'IBM Plex Mono',monospace; color:var(--text-soft); font-size:14px; margin:14px 0 0;}
 
