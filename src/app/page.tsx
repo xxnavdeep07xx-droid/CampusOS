@@ -28,29 +28,29 @@ const ROLES = [
     icon: Building2,
     name: "Principal",
     color: "bg-emerald-500",
-    desc: "Register the school, then invite teachers and staff to your campus.",
-    points: ["Create your school in one click", "Generate staff / teacher invites", "QR + shareable URL for every invite"],
+    desc: "Register the school, manage staff, and oversee the entire campus from one dashboard.",
+    points: ["Create your school in 90 seconds", "Invite teachers + staff via QR", "School-wide analytics + oversight"],
   },
   {
     icon: UserCog,
-    name: "Staff / Teacher",
+    name: "Teacher",
     color: "bg-sky-300",
-    desc: "Accept a principal's invite, then create classes for the students you teach.",
-    points: ["Token-validated onboarding", "Create as many classes as you need", "Generate student invites per class"],
+    desc: "Create classes, take attendance, grade assignments, and message parents — all in one place.",
+    points: ["Smart attendance with one-click mark all", "Unified grading queue + inline editing", "Lesson plans, syllabus tracker, + Google Drive"],
   },
   {
     icon: GraduationCap,
     name: "Student",
     color: "bg-rose-400",
-    desc: "Join a class with a teacher-issued invite — auto-linked to the right school.",
-    points: ["Scan-to-register via QR", "Role + class assigned automatically", "Dashboard shows your enrolled classes"],
+    desc: "Join a class with a teacher-issued invite, submit assignments, and track your grades.",
+    points: ["Scan QR to register — auto-linked to class", "Submit assignments + take quizzes", "View grades, attendance, and announcements"],
   },
   {
-    icon: ShieldCheck,
-    name: "Multi-tenant by design",
-    color: "bg-amber-400",
-    desc: "Row-Level Security isolates every school's data at the database layer.",
-    points: ["Supabase Postgres + RLS on every table", "Service-role key only used server-side", "Per-school data isolation, enforced in SQL"],
+    icon: Users,
+    name: "Parent",
+    color: "bg-violet-400",
+    desc: "Stay connected with teachers, track your child's progress, and pay fees online.",
+    points: ["Direct messaging with teachers", "View attendance + grades + behavior", "Pay fees + receive school announcements"],
   },
 ] as const;
 
@@ -59,25 +59,25 @@ const STEPS = [
     n: "01",
     title: "Principal registers the school",
     color: "bg-emerald-500",
-    desc: "A principal signs up at /register/principal — we create their auth account, the school row, and link them with role='principal'.",
+    desc: "Sign up at the registration page, enter your school name, and your campus is live in under 90 seconds.",
   },
   {
     n: "02",
-    title: "Principal invites staff & teachers",
+    title: "Invite teachers + staff",
     color: "bg-sky-300",
-    desc: "On the dashboard, the principal generates invite links (with QR codes) for staff and teachers. Each link carries a unique UUID token.",
+    desc: "Generate invite links with QR codes for your teachers and staff. Each invite carries the role + school automatically.",
   },
   {
     n: "03",
-    title: "Teachers create classes & invite students",
+    title: "Teachers create classes",
     color: "bg-violet-500",
-    desc: "After accepting an invite, teachers create classes. For each class, they generate a student invite link — students land in the right school + class automatically.",
+    desc: "Teachers create classes, generate student invite links, and start taking attendance, assigning homework, and grading.",
   },
   {
     n: "04",
-    title: "Students accept & join",
+    title: "Students + parents join",
     color: "bg-rose-400",
-    desc: "A student scans the QR (or opens the link), registers with email + password, and is immediately linked to the school and class with role='student'.",
+    desc: "Students scan a QR code to join their class. Parents get linked to their children to track progress and communicate with teachers.",
   },
 ] as const;
 
@@ -211,8 +211,8 @@ export default function LandingPage() {
           <Reveal>
             <SectionHeading accent="bg-sky-300">Who uses CampusOS</SectionHeading>
             <p className="mt-3 max-w-2xl text-base font-medium text-slate-700">
-              Four roles, one platform. Each role gets a tailored onboarding flow
-              driven by invite tokens — no manual school_id entry, no class mix-ups.
+              Four roles, one platform. Each role gets a tailored experience —
+              from the principal managing the school to the parent tracking their child&apos;s progress.
             </p>
           </Reveal>
           <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -253,11 +253,10 @@ export default function LandingPage() {
       <section className="border-b-[3px] border-slate-900 bg-[#FDFBF7]">
         <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-24">
           <Reveal>
-            <SectionHeading accent="bg-rose-400">The onboarding tree</SectionHeading>
+            <SectionHeading accent="bg-rose-400">How it works</SectionHeading>
             <p className="mt-3 max-w-2xl text-base font-medium text-slate-700">
-              Every new user joins via a token-validated link. The token carries
-              the school_id, the role, and (for students) the class_id — so the
-              signup form only collects email, name, and password.
+              From registration to your first class — get your entire campus online
+              in minutes, not weeks.
             </p>
           </Reveal>
           <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
