@@ -514,9 +514,10 @@ const PAGE_CSS = `
   .hallpass-list li::before{content:"— "; font-weight:700;}
 
   /* --- section headers --- */
-  .sec-head{max-width:640px; margin-bottom:44px;}
-  .sec-head h2{font-size:clamp(26px,3.4vw,38px); margin-top:10px;}
-  .sec-head p{color:var(--text-soft); margin-top:12px; font-size:16px;}
+  .sec-head{max-width:640px; margin-bottom:56px;}
+  .sec-head .eyebrow{margin-bottom:18px;}
+  .sec-head h2{font-size:clamp(26px,3.4vw,38px); margin-top:0;}
+  .sec-head p{color:var(--text-soft); margin-top:14px; font-size:16px;}
 
   /* --- role ID cards --- */
   .roles-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:22px;}
@@ -534,7 +535,9 @@ const PAGE_CSS = `
   .role-tag{
     position:absolute; top:16px; right:16px; font-family:'IBM Plex Mono',monospace;
     font-size:10px; font-weight:700; text-transform:uppercase; padding:3px 8px;
-    border:2px solid var(--line); border-radius:5px; background:var(--surface-2);
+    border:2px solid var(--line); border-radius:5px;
+    /* Use the page background (var(--bg)) so the tag is readable on any card color */
+    background:var(--bg); color:var(--text);
   }
   .role-list{list-style:none; margin:0; padding:0; font-size:13px; display:flex; flex-direction:column; gap:7px;}
   .role-list li{padding-left:16px; position:relative;}
