@@ -219,8 +219,8 @@ export default function LandingPage() {
             {ROLES.map((role, i) => {
               const Icon = role.icon;
               return (
-                <Reveal key={role.name} delay={i * 100}>
-                  <Card className="brutal-hover overflow-hidden">
+                <Reveal key={role.name} delay={i * 100} className="h-full">
+                  <Card className="brutal-hover flex h-full flex-col overflow-hidden">
                     <BrutalAccent color={role.color} />
                     <CardHeader>
                       <div
@@ -231,7 +231,7 @@ export default function LandingPage() {
                       <CardTitle className="mt-3 text-lg">{role.name}</CardTitle>
                       <CardDescription>{role.desc}</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="flex-1">
                       <ul className="space-y-2">
                         {role.points.map((p) => (
                           <li key={p} className="flex items-start gap-2 text-sm font-medium text-slate-700">
@@ -261,9 +261,9 @@ export default function LandingPage() {
           </Reveal>
           <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step, i) => (
-              <Reveal key={step.n} delay={i * 100}>
+              <Reveal key={step.n} delay={i * 100} className="h-full">
                 <div
-                  className="relative rounded-2xl border-[3px] border-slate-900 bg-white p-5 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] brutal-hover"
+                  className="relative flex h-full flex-col rounded-2xl border-[3px] border-slate-900 bg-white p-5 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] brutal-hover"
                 >
                   <div className="flex items-center justify-between">
                     <span
