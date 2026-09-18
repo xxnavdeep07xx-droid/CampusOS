@@ -526,14 +526,31 @@ const PAGE_CSS = `
 
   /* --- role ID cards --- */
   .roles-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:22px;}
-  .role-card{border-radius:16px; padding:22px; position:relative;}
+  .role-card{
+    border-radius:16px; padding:22px; position:relative;
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+    cursor:pointer;
+  }
   .role-card:nth-child(1){transform:rotate(-1.4deg);}
   .role-card:nth-child(2){transform:rotate(1deg);}
   .role-card:nth-child(3){transform:rotate(-.8deg);}
   .role-card:nth-child(4){transform:rotate(1.3deg);}
+  .role-card:hover{
+    transform:rotate(0deg) translateY(-8px) scale(1.03);
+    box-shadow:10px 10px 0 var(--shadow);
+    z-index:10;
+  }
+  .role-card:active{
+    transform:rotate(0deg) translateY(-2px) scale(1.01);
+    box-shadow:6px 6px 0 var(--shadow);
+  }
   .role-badge{
     width:44px; height:44px; border:3px solid var(--line); border-radius:50%;
     display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:14px;
+    transition:transform .25s ease;
+  }
+  .role-card:hover .role-badge{
+    transform:scale(1.15) rotate(-5deg);
   }
   .role-card h3{font-size:19px; margin-bottom:8px;}
   .role-card p{font-size:14px; color:inherit; margin-bottom:14px;}
@@ -611,5 +628,10 @@ const PAGE_CSS = `
     .fade-up.d1{animation-delay:.08s;}
     .fade-up.d2{animation-delay:.16s;}
     @keyframes fadeUp{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .role-card, .role-badge{transition:none !important;}
+    .role-card:hover{transform:none !important; box-shadow:6px 6px 0 var(--shadow) !important;}
+    .role-card:hover .role-badge{transform:none !important;}
   }
 `;
