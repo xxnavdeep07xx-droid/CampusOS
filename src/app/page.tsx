@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Building2, UserCog, GraduationCap, Users } from "lucide-react";
+
 
 /**
  * CampusOS — Neo-brutalist landing page.
@@ -13,7 +13,7 @@ import { Building2, UserCog, GraduationCap, Users } from "lucide-react";
 const ROLES = [
   {
     n: "01",
-    Icon: Building2,
+    emoji: "🏛️",
     title: "Principal",
     desc: "Register the school, invite staff, and see campus-wide activity from one screen.",
     points: ["Create the school in 90 seconds", "Invite staff by QR or link", "School-wide analytics"],
@@ -23,7 +23,7 @@ const ROLES = [
   },
   {
     n: "02",
-    Icon: UserCog,
+    emoji: "📋",
     title: "Teacher",
     desc: "Run classes, take attendance, and grade — without leaving one tab.",
     points: ["Mark full class present in one tap", "One queue for all grading", "Lesson plans + syllabus tracker"],
@@ -33,7 +33,7 @@ const ROLES = [
   },
   {
     n: "03",
-    Icon: GraduationCap,
+    emoji: "🎒",
     title: "Student",
     desc: "Join a class by scanning an invite — no forms to fill in.",
     points: ["Scan QR to join a class", "Submit work + take quizzes", "See grades and attendance"],
@@ -43,7 +43,7 @@ const ROLES = [
   },
   {
     n: "04",
-    Icon: Users,
+    emoji: "👪",
     title: "Parent",
     desc: "Message teachers directly and follow your child's progress.",
     points: ["Message teachers directly", "Track attendance and grades", "Pay fees online"],
@@ -259,7 +259,6 @@ export default function LandingPage() {
           </div>
           <div className="roles-grid">
             {ROLES.map((role) => {
-              const Icon = role.Icon;
               return (
                 <div
                   key={role.title}
@@ -268,7 +267,7 @@ export default function LandingPage() {
                 >
                   <span className="role-tag">{role.n}</span>
                   <div className="role-badge" style={{ background: role.badgeBg }}>
-                    <Icon size={20} strokeWidth={2.5} />
+                    {role.emoji}
                   </div>
                   <h3>{role.title}</h3>
                   <p>{role.desc}</p>
