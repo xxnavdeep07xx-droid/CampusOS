@@ -1,9 +1,17 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  Bell,
+  BookOpen,
   Building2,
+  CalendarCheck,
+  CalendarFold,
+  ClipboardList,
   GraduationCap,
+  HardDrive,
   KeyRound,
+  Mail,
+  Megaphone,
   QrCode,
   ShieldCheck,
   Users,
@@ -258,40 +266,45 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ====== Tech stack ====== */}
+      {/* ====== Features grid ====== */}
       <section className="border-b-[3px] border-slate-900 bg-slate-900 text-[#FDFBF7]">
         <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
-          <div className="grid gap-10 md:grid-cols-2 md:items-center">
-            <div>
-              <h2 className="text-3xl font-black uppercase tracking-tight md:text-4xl">
-                Built on a <span className="text-emerald-400">boring, reliable</span> stack.
-              </h2>
-              <p className="mt-4 max-w-xl text-base font-medium text-slate-300">
-                Next.js 16 App Router, Tailwind CSS 4, shadcn/ui (overridden to
-                neo-brutalism), Supabase Postgres + Auth, lucide-react icons.
-                No proprietary lock-in. No magic.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {[
-                "Next.js 16",
-                "TypeScript 5",
-                "Tailwind CSS 4",
-                "shadcn/ui",
-                "Supabase Auth",
-                "Supabase Postgres + RLS",
-                "lucide-react",
-                "react-qr-code",
-                "Neo-brutalist UI",
-              ].map((tech) => (
-                <div
-                  key={tech}
-                  className="rounded-xl border-2 border-[#FDFBF7] bg-slate-800 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider text-[#FDFBF7] shadow-[3px_3px_0px_0px_rgba(16,185,129,0.5)]"
-                >
-                  {tech}
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-black uppercase tracking-tight md:text-4xl">
+              Everything your school needs, <span className="text-emerald-400">in one place</span>
+            </h2>
+            <p className="mt-4 max-w-2xl mx-auto text-base font-medium text-slate-300">
+              From attendance to assignments, lesson plans to parent communication —
+              CampusOS handles it all.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { icon: "GraduationCap", title: "Class Management", desc: "Create classes, invite students via QR codes, manage enrollment" },
+              { icon: "CalendarCheck", title: "Smart Attendance", desc: "Mark all present in one click, track trends with heatmaps" },
+              { icon: "ClipboardList", title: "Grading Queue", desc: "Unified inbox for all ungraded submissions across classes" },
+              { icon: "BookOpen", title: "Lesson Planning", desc: "Weekly grid with objectives, materials, and syllabus tracking" },
+              { icon: "HardDrive", title: "Teacher Drive", desc: "Personal cloud storage + Google Drive integration" },
+              { icon: "Megaphone", title: "Announcements", desc: "Broadcast to classes with Zoom/Meet links attached" },
+              { icon: "Mail", title: "Direct Messaging", desc: "Secure 1:1 + group chats with staff and parents" },
+              { icon: "Bell", title: "Notifications", desc: "Real-time inbox for submissions, messages, and leave updates" },
+              { icon: "CalendarFold", title: "Unified Calendar", desc: "Timetables, due dates, and lesson plans in one view" },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="rounded-xl border-2 border-[#FDFBF7]/15 bg-slate-800 px-4 py-4 shadow-[3px_3px_0px_0px_rgba(16,185,129,0.3)] transition-all hover:border-emerald-400 hover:shadow-[4px_4px_0px_0px_rgba(16,185,129,0.5)]"
+              >
+                <div className="mb-2 flex size-9 items-center justify-center rounded-lg border-2 border-emerald-400 bg-emerald-500/20">
+                  <FeatureIcon name={f.icon} />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-sm font-black uppercase tracking-tight text-[#FDFBF7]">
+                  {f.title}
+                </h3>
+                <p className="mt-1 text-xs font-medium text-slate-400">
+                  {f.desc}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -343,4 +356,20 @@ export default function LandingPage() {
       </footer>
     </main>
   );
+}
+
+function FeatureIcon({ name }: { name: string }) {
+  const props = { className: "size-4 text-emerald-400", strokeWidth: 2.5 } as const;
+  switch (name) {
+    case "GraduationCap": return <GraduationCap {...props} />;
+    case "CalendarCheck": return <CalendarCheck {...props} />;
+    case "ClipboardList": return <ClipboardList {...props} />;
+    case "BookOpen": return <BookOpen {...props} />;
+    case "HardDrive": return <HardDrive {...props} />;
+    case "Megaphone": return <Megaphone {...props} />;
+    case "Mail": return <Mail {...props} />;
+    case "Bell": return <Bell {...props} />;
+    case "CalendarFold": return <CalendarFold {...props} />;
+    default: return <GraduationCap {...props} />;
+  }
 }
