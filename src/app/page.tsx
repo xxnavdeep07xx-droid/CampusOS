@@ -518,8 +518,8 @@ const PAGE_CSS = `
   .hallpass-list li::before{content:"— "; font-weight:700;}
 
   /* --- section headers --- */
-  .sec-head{max-width:640px; margin-bottom:56px;}
-  .sec-head .eyebrow{margin-bottom:18px;}
+  .sec-head{max-width:640px; margin-bottom:64px;}
+  .sec-head .eyebrow{margin-bottom:24px;}
   .sec-head h2{font-size:clamp(26px,3.4vw,38px); margin-top:0;}
   .sec-head p{color:var(--text-soft); margin-top:14px; font-size:16px;}
 
