@@ -134,9 +134,10 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="ml-4 list-disc space-y-1">
               <li>
-                <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">drive.file</code> —
-                Read access to file metadata and the ability to download files you choose to
-                import. We do <strong>not</strong> create, edit, or delete files in your Drive.
+                <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">drive.readonly</code> —
+                Read-only access to browse all files in your Google Drive. We can see file names,
+                types, and download files you choose to import. We do <strong>not</strong> create,
+                edit, or delete files in your Drive.
               </li>
               <li>
                 <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">userinfo.email</code> —

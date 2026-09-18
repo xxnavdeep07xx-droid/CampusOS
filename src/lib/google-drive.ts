@@ -18,6 +18,10 @@
  *
  * For a broader "see all my Drive files" scope, swap drive.file → drive
  * (requires Google verification — drive.file is the safer default).
+ *
+ * NOTE: We use drive.readonly so teachers can browse ALL their existing
+ * Drive files (not just app-created ones). This is read-only — CampusOS
+ * cannot create/edit/delete files in the teacher's Drive.
  */
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -25,7 +29,7 @@ const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
 
 const SCOPES = [
-  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive.readonly",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
 ].join(" ");
