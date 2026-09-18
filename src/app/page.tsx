@@ -118,35 +118,42 @@ const earlyThemeScript = `
 })();
 `;
 
-/** Theme toggle button wiring — runs after the page is interactive. */
+/** Theme toggle button wiring — runs after DOM is ready. */
 const themeToggleScript = `
 (function(){
-  var root = document.documentElement;
-  var btn = document.getElementById('themeToggle');
-  if (!btn) return;
-  function currentTheme(){
-    var explicit = root.getAttribute('data-theme');
-    if (explicit) return explicit;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  function init(){
+    var root = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    function currentTheme(){
+      var explicit = root.getAttribute('data-theme');
+      if (explicit) return explicit;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function updateIcon(t){
+      btn.textContent = t === 'dark' ? '\\u2600\\uFE0F' : '\\u{1F319}';
+      btn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+    }
+    updateIcon(currentTheme());
+    btn.addEventListener('click', function(){
+      var next = currentTheme() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('campusos-theme', next); } catch(e){}
+      updateIcon(next);
+    });
   }
-  function updateIcon(t){
-    btn.textContent = t === 'dark' ? '☀️' : '🌙';
-    btn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
-  updateIcon(currentTheme());
-  btn.addEventListener('click', function(){
-    var next = currentTheme() === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    try { localStorage.setItem('campusos-theme', next); } catch(e){}
-    updateIcon(next);
-  });
 })();
 `;
 
 export default function LandingPage() {
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: earlyThemeScript }} />
+      <script dangerouslySetInnerHTML={{ __html: earlyThemeScript + "\\n" + themeToggleScript }} />
 
       <header>
         <div className="nav wrap">
@@ -362,8 +369,6 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      <script dangerouslySetInnerHTML={{ __html: themeToggleScript }} />
-
       <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
     </>
   );
@@ -530,7 +535,7 @@ const PAGE_CSS = `
     display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:14px;
   }
   .role-card h3{font-size:19px; margin-bottom:8px;}
-  .role-card p{font-size:14px; color:inherit; opacity:.75; margin-bottom:14px;}
+  .role-card p{font-size:14px; color:inherit; margin-bottom:14px;}
   .role-tag{
     position:absolute; top:16px; right:16px; font-family:'IBM Plex Mono',monospace;
     font-size:10px; font-weight:700; text-transform:uppercase; padding:3px 8px;
@@ -539,8 +544,8 @@ const PAGE_CSS = `
     background:var(--bg); color:var(--text);
   }
   .role-list{list-style:none; margin:0; padding:0; font-size:13px; display:flex; flex-direction:column; gap:7px;}
-  .role-list li{padding-left:16px; position:relative; color:inherit; opacity:.85;}
-  .role-list li::before{content:"\\2713"; position:absolute; left:0; font-weight:800; opacity:1;}
+  .role-list li{padding-left:16px; position:relative;}
+  .role-list li::before{content:"\\2713"; position:absolute; left:0; font-weight:800;}
 
   /* --- how it works: ticket strip --- */
   .steps{display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:3px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:6px 6px 0 var(--shadow);}
