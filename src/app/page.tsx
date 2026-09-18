@@ -530,7 +530,7 @@ const PAGE_CSS = `
     display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:14px;
   }
   .role-card h3{font-size:19px; margin-bottom:8px;}
-  .role-card p{font-size:14px; color:var(--text-soft); margin-bottom:14px;}
+  .role-card p{font-size:14px; color:inherit; opacity:.75; margin-bottom:14px;}
   .role-tag{
     position:absolute; top:16px; right:16px; font-family:'IBM Plex Mono',monospace;
     font-size:10px; font-weight:700; text-transform:uppercase; padding:3px 8px;
@@ -539,8 +539,8 @@ const PAGE_CSS = `
     background:var(--bg); color:var(--text);
   }
   .role-list{list-style:none; margin:0; padding:0; font-size:13px; display:flex; flex-direction:column; gap:7px;}
-  .role-list li{padding-left:16px; position:relative;}
-  .role-list li::before{content:"\\2713"; position:absolute; left:0; font-weight:800;}
+  .role-list li{padding-left:16px; position:relative; color:inherit; opacity:.85;}
+  .role-list li::before{content:"\\2713"; position:absolute; left:0; font-weight:800; opacity:1;}
 
   /* --- how it works: ticket strip --- */
   .steps{display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:3px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:6px 6px 0 var(--shadow);}
