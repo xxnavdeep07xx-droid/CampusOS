@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrutalLogo, BrutalAccent } from "@/components/brutal/logo";
 import { SectionHeading, Tag } from "@/components/brutal/section";
+import { Reveal, AnimatedCounter } from "@/components/brutal/reveal";
 
 const ROLES = [
   {
@@ -118,116 +119,130 @@ export default function LandingPage() {
         />
         <div className="relative mx-auto grid max-w-7xl gap-10 px-5 py-16 md:grid-cols-2 md:items-center md:px-8 md:py-24">
           <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <Tag color="bg-emerald-300">Phase 1 · Auth + Onboarding</Tag>
-              <Tag color="bg-amber-200">Invite-based multi-tenant</Tag>
-            </div>
-            <h1 className="text-4xl font-black uppercase leading-[0.95] tracking-tight text-slate-900 md:text-6xl">
-              One OS <br />
-              for your <span className="text-emerald-600">entire campus.</span>
-            </h1>
-            <p className="max-w-xl text-base font-medium text-slate-700 md:text-lg">
-              CampusOS is an all-in-one school &amp; college management platform.
-              Principals register the school, invite teachers and staff. Teachers create
-              classes and invite students. Multi-tenant Row-Level Security keeps every
-              school&apos;s data isolated at the database layer.
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Button variant="emerald" size="lg" asChild>
-                <Link href="/register/principal">
-                  Register your school
-                  <ArrowRight className="size-5" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" asChild>
-                <Link href="/login">
-                  <KeyRound className="size-5" />
-                  I have an account
-                </Link>
-              </Button>
-            </div>
+            <Reveal delay={0}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Tag color="bg-emerald-300">Invite-based onboarding</Tag>
+                <Tag color="bg-amber-200">Multi-tenant security</Tag>
+              </div>
+            </Reveal>
+            <Reveal delay={150}>
+              <h1 className="text-4xl font-black uppercase leading-[0.95] tracking-tight text-slate-900 md:text-6xl">
+                One OS <br />
+                for your <span className="text-emerald-600">entire campus.</span>
+              </h1>
+            </Reveal>
+            <Reveal delay={300}>
+              <p className="max-w-xl text-base font-medium text-slate-700 md:text-lg">
+                CampusOS is an all-in-one school &amp; college management platform.
+                Principals register the school, invite teachers and staff. Teachers create
+                classes and invite students. Attendance, grading, lesson plans, messaging,
+                and more — all in one place.
+              </p>
+            </Reveal>
+            <Reveal delay={450}>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button variant="emerald" size="lg" asChild>
+                  <Link href="/register/principal">
+                    Register your school
+                    <ArrowRight className="size-5" />
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild>
+                  <Link href="/login">
+                    <KeyRound className="size-5" />
+                    I have an account
+                  </Link>
+                </Button>
+              </div>
+            </Reveal>
           </div>
 
           {/* Hero card — invitation preview */}
-          <div className="relative">
-            <div className="absolute -left-3 -top-3 hidden h-full w-full rounded-2xl border-2 border-slate-900 bg-amber-300 md:block" aria-hidden />
-            <Card className="relative">
-              <BrutalAccent color="bg-emerald-500" />
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <Tag color="bg-sky-300">
-                    <Users className="size-3" /> Staff invite
-                  </Tag>
-                  <Tag color="bg-amber-200">token: uuid</Tag>
-                </div>
-                <CardTitle className="mt-3">Invite your team</CardTitle>
-                <CardDescription>
-                  Share a link or scan the QR — registration is auto-validated.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center gap-5">
-                <div className="flex size-32 items-center justify-center rounded-xl border-2 border-slate-900 bg-white p-2 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
-                  <QrCode className="size-full text-slate-900" strokeWidth={2.5} />
-                </div>
-                <div className="flex-1">
-                  <div className="rounded-lg border-2 border-slate-900 bg-[#FDFBF7] px-3 py-2 text-xs font-mono text-slate-700 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
-                    /register/teacher?token=…
+          <Reveal delay={600} y={40}>
+            <div className="relative">
+              <div className="absolute -left-3 -top-3 hidden h-full w-full rounded-2xl border-2 border-slate-900 bg-amber-300 md:block" aria-hidden />
+              <Card className="relative">
+                <BrutalAccent color="bg-emerald-500" />
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <Tag color="bg-sky-300">
+                      <Users className="size-3" /> Staff invite
+                    </Tag>
+                    <Tag color="bg-amber-200">token: uuid</Tag>
                   </div>
-                  <ul className="mt-3 space-y-1 text-sm font-medium text-slate-700">
-                    <li className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-emerald-500" />
-                      Role auto-assigned
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-sky-400" />
-                      School auto-linked
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-rose-400" />
-                      One-use token (can&apos;t be reused)
-                    </li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  <CardTitle className="mt-3">Invite your team</CardTitle>
+                  <CardDescription>
+                    Share a link or scan the QR — registration is auto-validated.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center gap-5">
+                  <div className="flex size-32 items-center justify-center rounded-xl border-2 border-slate-900 bg-white p-2 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
+                    <QrCode className="size-full text-slate-900" strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="rounded-lg border-2 border-slate-900 bg-[#FDFBF7] px-3 py-2 text-xs font-mono text-slate-700 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
+                      /register/teacher?token=…
+                    </div>
+                    <ul className="mt-3 space-y-1 text-sm font-medium text-slate-700">
+                      <li className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-emerald-500" />
+                        Role auto-assigned
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-sky-400" />
+                        School auto-linked
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-rose-400" />
+                        One-use token (can&apos;t be reused)
+                      </li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ====== Roles grid ====== */}
       <section className="border-b-[3px] border-slate-900 bg-amber-100/40">
         <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-24">
-          <SectionHeading accent="bg-sky-300">Who uses CampusOS</SectionHeading>
-          <p className="mt-3 max-w-2xl text-base font-medium text-slate-700">
-            Four roles, one platform. Each role gets a tailored onboarding flow
-            driven by invite tokens — no manual school_id entry, no class mix-ups.
-          </p>
+          <Reveal>
+            <SectionHeading accent="bg-sky-300">Who uses CampusOS</SectionHeading>
+            <p className="mt-3 max-w-2xl text-base font-medium text-slate-700">
+              Four roles, one platform. Each role gets a tailored onboarding flow
+              driven by invite tokens — no manual school_id entry, no class mix-ups.
+            </p>
+          </Reveal>
           <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {ROLES.map((role) => {
+            {ROLES.map((role, i) => {
               const Icon = role.icon;
               return (
-                <Card key={role.name} className="brutal-hover overflow-hidden">
-                  <BrutalAccent color={role.color} />
-                  <CardHeader>
-                    <div
-                      className={`flex size-12 items-center justify-center rounded-xl border-2 border-slate-900 ${role.color} shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]`}
-                    >
-                      <Icon className="size-6 text-slate-900" strokeWidth={2.5} />
-                    </div>
-                    <CardTitle className="mt-3 text-lg">{role.name}</CardTitle>
-                    <CardDescription>{role.desc}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
-                      {role.points.map((p) => (
-                        <li key={p} className="flex items-start gap-2 text-sm font-medium text-slate-700">
-                          <span className="mt-1 size-2 shrink-0 rounded-full bg-slate-900" />
-                          {p}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
+                <Reveal key={role.name} delay={i * 100}>
+                  <Card className="brutal-hover overflow-hidden">
+                    <BrutalAccent color={role.color} />
+                    <CardHeader>
+                      <div
+                        className={`flex size-12 items-center justify-center rounded-xl border-2 border-slate-900 ${role.color} shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]`}
+                      >
+                        <Icon className="size-6 text-slate-900" strokeWidth={2.5} />
+                      </div>
+                      <CardTitle className="mt-3 text-lg">{role.name}</CardTitle>
+                      <CardDescription>{role.desc}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2">
+                        {role.points.map((p) => (
+                          <li key={p} className="flex items-start gap-2 text-sm font-medium text-slate-700">
+                            <span className="mt-1 size-2 shrink-0 rounded-full bg-slate-900" />
+                            {p}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </Reveal>
               );
             })}
           </div>
@@ -237,30 +252,33 @@ export default function LandingPage() {
       {/* ====== How it works ====== */}
       <section className="border-b-[3px] border-slate-900 bg-[#FDFBF7]">
         <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-24">
-          <SectionHeading accent="bg-rose-400">The onboarding tree</SectionHeading>
-          <p className="mt-3 max-w-2xl text-base font-medium text-slate-700">
-            Every new user joins via a token-validated link. The token carries
-            the school_id, the role, and (for students) the class_id — so the
-            signup form only collects email, name, and password.
-          </p>
+          <Reveal>
+            <SectionHeading accent="bg-rose-400">The onboarding tree</SectionHeading>
+            <p className="mt-3 max-w-2xl text-base font-medium text-slate-700">
+              Every new user joins via a token-validated link. The token carries
+              the school_id, the role, and (for students) the class_id — so the
+              signup form only collects email, name, and password.
+            </p>
+          </Reveal>
           <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {STEPS.map((step) => (
-              <div
-                key={step.n}
-                className="relative rounded-2xl border-[3px] border-slate-900 bg-white p-5 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] brutal-hover"
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`rounded-md border-2 border-slate-900 px-2 py-0.5 text-xs font-black ${step.color}`}
-                  >
-                    STEP {step.n}
-                  </span>
+            {STEPS.map((step, i) => (
+              <Reveal key={step.n} delay={i * 100}>
+                <div
+                  className="relative rounded-2xl border-[3px] border-slate-900 bg-white p-5 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] brutal-hover"
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`rounded-md border-2 border-slate-900 px-2 py-0.5 text-xs font-black ${step.color}`}
+                    >
+                      STEP {step.n}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-lg font-extrabold uppercase tracking-tight">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-sm font-medium text-slate-700">{step.desc}</p>
                 </div>
-                <h3 className="mt-3 text-lg font-extrabold uppercase tracking-tight">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-sm font-medium text-slate-700">{step.desc}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -269,15 +287,17 @@ export default function LandingPage() {
       {/* ====== Features grid ====== */}
       <section className="border-b-[3px] border-slate-900 bg-slate-900 text-[#FDFBF7]">
         <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-black uppercase tracking-tight md:text-4xl">
-              Everything your school needs, <span className="text-emerald-400">in one place</span>
-            </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-base font-medium text-slate-300">
-              From attendance to assignments, lesson plans to parent communication —
-              CampusOS handles it all.
-            </p>
-          </div>
+          <Reveal>
+            <div className="mb-10 text-center">
+              <h2 className="text-3xl font-black uppercase tracking-tight md:text-4xl">
+                Everything your school needs, <span className="text-emerald-400">in one place</span>
+              </h2>
+              <p className="mt-4 max-w-2xl mx-auto text-base font-medium text-slate-300">
+                From attendance to assignments, lesson plans to parent communication —
+                CampusOS handles it all.
+              </p>
+            </div>
+          </Reveal>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { icon: "GraduationCap", title: "Class Management", desc: "Create classes, invite students via QR codes, manage enrollment" },
@@ -289,21 +309,47 @@ export default function LandingPage() {
               { icon: "Mail", title: "Direct Messaging", desc: "Secure 1:1 + group chats with staff and parents" },
               { icon: "Bell", title: "Notifications", desc: "Real-time inbox for submissions, messages, and leave updates" },
               { icon: "CalendarFold", title: "Unified Calendar", desc: "Timetables, due dates, and lesson plans in one view" },
-            ].map((f) => (
-              <div
-                key={f.title}
-                className="rounded-xl border-2 border-[#FDFBF7]/15 bg-slate-800 px-4 py-4 shadow-[3px_3px_0px_0px_rgba(16,185,129,0.3)] transition-all hover:border-emerald-400 hover:shadow-[4px_4px_0px_0px_rgba(16,185,129,0.5)]"
-              >
-                <div className="mb-2 flex size-9 items-center justify-center rounded-lg border-2 border-emerald-400 bg-emerald-500/20">
-                  <FeatureIcon name={f.icon} />
+            ].map((f, i) => (
+              <Reveal key={f.title} delay={i * 80}>
+                <div
+                  className="rounded-xl border-2 border-[#FDFBF7]/15 bg-slate-800 px-4 py-4 shadow-[3px_3px_0px_0px_rgba(16,185,129,0.3)] transition-all hover:border-emerald-400 hover:shadow-[4px_4px_0px_0px_rgba(16,185,129,0.5)]"
+                >
+                  <div className="mb-2 flex size-9 items-center justify-center rounded-lg border-2 border-emerald-400 bg-emerald-500/20">
+                    <FeatureIcon name={f.icon} />
+                  </div>
+                  <h3 className="text-sm font-black uppercase tracking-tight text-[#FDFBF7]">
+                    {f.title}
+                  </h3>
+                  <p className="mt-1 text-xs font-medium text-slate-400">
+                    {f.desc}
+                  </p>
                 </div>
-                <h3 className="text-sm font-black uppercase tracking-tight text-[#FDFBF7]">
-                  {f.title}
-                </h3>
-                <p className="mt-1 text-xs font-medium text-slate-400">
-                  {f.desc}
-                </p>
-              </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ====== Stats counter ====== */}
+      <section className="border-b-[3px] border-slate-900 bg-emerald-500">
+        <div className="mx-auto max-w-7xl px-5 py-12 md:px-8">
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+            {[
+              { label: "Features", target: 30, suffix: "+" },
+              { label: "Database tables", target: 37 },
+              { label: "API routes", target: 63 },
+              { label: "Pages", target: 46 },
+            ].map((stat, i) => (
+              <Reveal key={stat.label} delay={i * 100}>
+                <div className="text-center">
+                  <div className="text-4xl font-black text-slate-900 md:text-5xl">
+                    <AnimatedCounter target={stat.target} suffix={stat.suffix ?? ""} />
+                  </div>
+                  <div className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-800">
+                    {stat.label}
+                  </div>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -312,7 +358,8 @@ export default function LandingPage() {
       {/* ====== CTA ====== */}
       <section className="bg-emerald-500">
         <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-24">
-          <div className="flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between">
+          <Reveal>
+            <div className="flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-3xl font-black uppercase tracking-tight text-slate-900 md:text-5xl">
                 Ready to bring <br />
@@ -334,6 +381,7 @@ export default function LandingPage() {
               </Link>
             </Button>
           </div>
+          </Reveal>
         </div>
       </section>
 
