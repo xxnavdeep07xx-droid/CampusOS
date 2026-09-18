@@ -18,7 +18,7 @@ const ROLES = [
     desc: "Register the school, invite staff, and see campus-wide activity from one screen.",
     points: ["Create the school in 90 seconds", "Invite staff by QR or link", "School-wide analytics"],
     bg: "var(--green)",
-    color: "var(--green-ink)",
+    color: "#0B3626",
     badgeBg: "var(--bg)",
   },
   {
@@ -28,7 +28,7 @@ const ROLES = [
     desc: "Run classes, take attendance, and grade — without leaving one tab.",
     points: ["Mark full class present in one tap", "One queue for all grading", "Lesson plans + syllabus tracker"],
     bg: "var(--blue)",
-    color: "#fff",
+    color: "#0B1B4D",
     badgeBg: "var(--bg)",
   },
   {
@@ -38,7 +38,7 @@ const ROLES = [
     desc: "Join a class by scanning an invite — no forms to fill in.",
     points: ["Scan QR to join a class", "Submit work + take quizzes", "See grades and attendance"],
     bg: "var(--coral)",
-    color: "#fff",
+    color: "#3D0C0E",
     badgeBg: "var(--bg)",
   },
   {
@@ -48,7 +48,7 @@ const ROLES = [
     desc: "Message teachers directly and follow your child's progress.",
     points: ["Message teachers directly", "Track attendance and grades", "Pay fees online"],
     bg: "var(--yellow)",
-    color: "var(--yellow-ink)",
+    color: "#3D2E00",
     badgeBg: "var(--bg)",
   },
 ] as const;
