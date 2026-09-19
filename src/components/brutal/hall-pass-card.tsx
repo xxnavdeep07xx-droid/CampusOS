@@ -379,7 +379,11 @@ export function HallPassCard() {
       sh = r.height;
       const L = clamp(sh * 0.28, 110, 300);
       ay = -24;
-      ax = sw / 2;
+      // Anchor at ~78% of the stage width — matches the center of the
+      // hero-grid's right column (1.15fr 1fr grid with 56px gap → right
+      // column center is at ~78% of the grid width). This keeps the card
+      // clearly in the right portion, not overlapping the hero text.
+      ax = sw * 0.78;
       W = clamp(Math.min(sw * 0.86, 360, (sh - L - 60) / 1.14), 200, 360);
       H = W * 1.14;
       const gap = W * 0.045;
@@ -578,10 +582,27 @@ export function HallPassCard() {
           --hp-sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
           --hp-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-          position: relative;
-          width: 100%;
-          min-height: 580px;
-          overflow: hidden;
+          /* Stage is positioned absolutely over the hero so the card can
+             swing freely across the full hero box (not just the right
+             grid column). The hero must be position: relative.
+
+             Negative top/bottom offsets extend the stage to cover the
+             hero's padding (64px top, 72px bottom — matches .hero CSS),
+             so the stage's top edge aligns with the hero's top border
+             edge (= the header's bottom edge in the document flow).
+
+             overflow: visible lets the strap SVG extend above the
+             stage top into the header area. The header is opaque and
+             z-index: 40, so it hides the strap above its bottom edge.
+             The visible strap emerges from the header bottom line. */
+          position: absolute;
+          top: -64px;
+          left: 0;
+          right: 0;
+          bottom: -72px;
+          overflow: visible;
+          pointer-events: none;
+          z-index: 5;
           font-family: var(--hp-sans);
           isolation: isolate;
         }
@@ -604,6 +625,10 @@ export function HallPassCard() {
           font-size: calc(var(--w, 320px) / 24);
           transform-origin: 0 0; transform-style: preserve-3d; will-change: transform;
           touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+          /* Stage has pointer-events: none so it doesn't block clicks on
+             the hero text/CTAs underneath. The card itself re-enables
+             pointer events so it can be dragged. */
+          pointer-events: auto;
           opacity: 0;
         }
         .hp-ready .hp-card{ opacity: 1; transition: opacity .18s ease-out }

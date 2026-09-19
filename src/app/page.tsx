@@ -191,10 +191,13 @@ export default function LandingPage() {
                 </Link>
               </div>
             </div>
-
-            {/* Hall-pass hero card — drops down with lanyard */}
-            <HallPassCard />
           </div>
+
+          {/* Hall-pass hero card — absolute-positioned over the hero so the
+              strap can extend up into the header area (hidden behind the
+              opaque header). Stage covers the full hero box (including
+              padding) via negative offsets, so the card can swing freely. */}
+          <HallPassCard />
         </section>
 
         {/* ====== Roles ====== */}
@@ -406,7 +409,7 @@ const PAGE_CSS = `
   .kicker{font-family:'IBM Plex Mono',monospace; color:var(--text-soft); font-size:14px; margin:14px 0 0;}
 
   /* --- hero --- */
-  .hero{padding:64px 0 72px;}
+  .hero{padding:64px 0 72px; position:relative;}
   .hero-grid{display:grid; grid-template-columns:1.15fr 1fr; gap:56px; align-items:center;}
   .stamps{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:22px;}
   .stamp{
