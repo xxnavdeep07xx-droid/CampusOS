@@ -267,10 +267,20 @@ export function HallPassCard() {
               b.y -= dy * diff * (b.im / w);
             }
           const pad = 4;
+          // Card top clamps at ay (the anchor Y). The card's TL/TR points sit
+          // slightly below the clip (gap = W*0.045), so allowing them up to ay
+          // keeps the card visible inside the stage. Going above would clip
+          // against the stage's overflow:hidden top edge.
+          const topClamp = ay + 4;
           for (const p of pts)
             if (p.im) {
               if (p.x < pad) p.x = pad;
               else if (p.x > width - pad) p.x = width - pad;
+              if (p.y < topClamp) {
+                // Soft clamp: dampen upward velocity, don't snap (avoid jitter)
+                p.y = topClamp;
+                if (p.py < p.y) p.py = p.y; // kill residual upward momentum
+              }
               if (p.y > height - pad) {
                 p.y = height - pad;
                 p.py = p.y + (p.py - p.y) * 0.2;
