@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { HallPassCard } from "@/components/brutal/hall-pass-card";
+import { InteractiveGrid } from "@/components/brutal/interactive-grid";
 
 
 /**
@@ -206,6 +207,10 @@ export default function LandingPage() {
       <main>
         {/* ====== Hero ====== */}
         <section className="hero wrap">
+          {/* Interactive square grid — fills the hero background.
+              Subtle by default, squares light up near the cursor. */}
+          <InteractiveGrid />
+
           <div className="hero-grid">
             <div className="fade-up">
               <div className="stamps">
@@ -479,6 +484,8 @@ const PAGE_CSS = `
   .hero-grid{
     display:grid; grid-template-columns:1.15fr 1fr; gap:56px; align-items:center;
     width:100%;
+    /* Sit above the InteractiveGrid background (z-index: 0) */
+    position:relative; z-index:1;
   }
   .stamps{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:22px;}
   .stamp{
