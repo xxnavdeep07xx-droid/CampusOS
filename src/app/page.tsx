@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { HallPassCard } from "@/components/brutal/hall-pass-card";
 
 
 /**
@@ -107,152 +106,55 @@ const FEATURES = [
   { icon: "🗓️", title: "Unified calendar", desc: "Timetables, due dates, and lesson plans in a single view." },
 ] as const;
 
+/** Inline script that runs BEFORE hydration to set data-theme on <html>.
+ *  Uses a separate localStorage key ('campusos-theme') so it does not
+ *  collide with the layout's .dark-class toggle. */
+const earlyThemeScript = `
+(function(){
+  try {
+    var t = localStorage.getItem('campusos-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+`;
+
+/** Theme toggle button wiring — runs after DOM is ready. */
+const themeToggleScript = `
+(function(){
+  function init(){
+    var root = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    function currentTheme(){
+      var explicit = root.getAttribute('data-theme');
+      if (explicit) return explicit;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function updateIcon(t){
+      btn.textContent = t === 'dark' ? '\\u2600\\uFE0F' : '\\u{1F319}';
+      btn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+    }
+    updateIcon(currentTheme());
+    btn.addEventListener('click', function(){
+      var next = currentTheme() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('campusos-theme', next); } catch(e){}
+      updateIcon(next);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+`;
+
 export default function LandingPage() {
   return (
     <>
-      {/* Landing page theme: support both light and dark mode.
-          When .dark is on <html> (from the dashboard toggle), use dark
-          CSS variable values. Otherwise use light values. */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        html.dark {
-          --bg: #101218;
-          --surface: #1B1E26;
-          --surface-2: #20232C;
-          --text: #F5F3EA;
-          --text-soft: #A7ABB8;
-          --line: #F5F3EA;
-          --shadow: #000000;
-          --green: #22D890;
-          --green-ink: #061209;
-          --yellow: #FFD65C;
-          --yellow-ink: #1A1500;
-          --coral: #FF6B70;
-          --coral-ink: #1A0303;
-          --blue: #6E93FF;
-          --blue-ink: #050B1A;
-          background: #101218 !important;
-        }
-        html.dark body {
-          background: #101218 !important;
-          color: #F5F3EA !important;
-        }
-        html.dark .hero {
-          background: #101218 !important;
-        }
-        html.dark .brut,
-        html.dark .step,
-        html.dark .why-card,
-        html.dark .feature-card {
-          background: #1B1E26 !important;
-          border-color: #F5F3EA !important;
-          box-shadow: 6px 6px 0 #000000 !important;
-        }
-        html.dark .hallpass {
-          background: #FFD65C !important;
-          color: #1A1500 !important;
-          border-color: #F5F3EA !important;
-          box-shadow: 9px 9px 0 #000000 !important;
-        }
-        html.dark .hallpass::before {
-          background: #101218 !important;
-          border-color: #F5F3EA !important;
-        }
-        html.dark .hallpass-pin {
-          background: #22D890 !important;
-          border-color: #F5F3EA !important;
-        }
-        html.dark .hallpass-string {
-          background: #F5F3EA !important;
-        }
-        html.dark .hallpass-string::after {
-          background: #F5F3EA !important;
-        }
-        html.dark .cta-band {
-          background: #22D890 !important;
-          color: #061209 !important;
-          border-color: #F5F3EA !important;
-          box-shadow: 9px 9px 0 #000000 !important;
-        }
-        html.dark .cta-band .btn {
-          background: #101218 !important;
-          color: #F5F3EA !important;
-        }
-        html.dark .eyebrow {
-          background: #20232C !important;
-          border-color: #F5F3EA !important;
-          color: #F5F3EA !important;
-        }
-        html.dark .stamp {
-          border-color: #F5F3EA !important;
-        }
-        html.dark .stamp.g {
-          background: #22D890 !important;
-          color: #061209 !important;
-        }
-        html.dark .stamp.b {
-          background: #6E93FF !important;
-          color: #fff !important;
-        }
-        html.dark .role-tag {
-          background: #101218 !important;
-          color: #F5F3EA !important;
-          border-color: #F5F3EA !important;
-        }
-        html.dark .hallpass-body {
-          background: rgba(255,255,255,0.15) !important;
-          border-color: #F5F3EA !important;
-        }
-        html.dark .qr {
-          background: #fff !important;
-          border-color: #1A1500 !important;
-        }
-        html.dark .hallpass-code {
-          color: #1A1500 !important;
-        }
-        html.dark .hallpass-list {
-          color: #1A1500 !important;
-        }
-        html.dark .step {
-          border-color: #F5F3EA !important;
-          border-right-color: #F5F3EA !important;
-        }
-        html.dark .step-no {
-          color: #A7ABB8 !important;
-        }
-        html.dark .why-num {
-          color: #A7ABB8 !important;
-        }
-        html.dark .feature-icon {
-          border-color: #F5F3EA !important;
-        }
-        html.dark .logo-mark {
-          border-color: #F5F3EA !important;
-          box-shadow: 3px 3px 0 #000000 !important;
-        }
-        html.dark .btn {
-          border-color: #F5F3EA !important;
-          box-shadow: 5px 5px 0 #000000 !important;
-        }
-        html.dark .btn-primary {
-          background: #22D890 !important;
-          color: #061209 !important;
-        }
-        html.dark .btn:hover {
-          box-shadow: 7px 7px 0 #000000 !important;
-        }
-        html.dark header {
-          border-color: #F5F3EA !important;
-        }
-        html.dark .nav {
-          background: #101218 !important;
-        }
-        html.dark footer {
-          border-color: #F5F3EA !important;
-        }
-        html.dark .headline u svg path {
-          stroke: #FF6B70 !important;
-        }
-      `}} />
+      <script dangerouslySetInnerHTML={{ __html: earlyThemeScript + "\\n" + themeToggleScript }} />
+
       <header>
         <div className="nav wrap">
           <Link href="/" className="logo">
@@ -265,6 +167,9 @@ export default function LandingPage() {
             <Link href="/login" className="nav-login">
               Log in
             </Link>
+            <button className="theme-toggle" id="themeToggle" aria-label="Switch to dark mode">
+              🌙
+            </button>
             <Link href="/register/principal" className="btn btn-primary btn-sm">
               Register your school
             </Link>
@@ -313,8 +218,42 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Hall-pass hero card — interactive with gravity physics */}
-            <HallPassCard />
+            {/* Hall-pass hero card */}
+            <div className="hallpass-wrap fade-up d1">
+              <div className="hallpass">
+                <div className="hallpass-head">
+                  <span className="hallpass-tag">Staff invite</span>
+                  <span className="hallpass-tag">No. 0042</span>
+                </div>
+                <h3>Hall Pass</h3>
+                <p>Scan to join — role and school are filled in for you.</p>
+                <div className="hallpass-body">
+                  <div className="qr">
+                    <div className="qr-eye tl" />
+                    <div className="qr-eye tr" />
+                    <div className="qr-eye bl" />
+                    <i style={{ top: "8px", left: "34px" }} />
+                    <i style={{ top: "16px", left: "42px" }} />
+                    <i style={{ top: "24px", left: "30px" }} />
+                    <i style={{ top: "34px", left: "46px" }} />
+                    <i style={{ top: "42px", left: "36px" }} />
+                    <i style={{ top: "44px", left: "8px" }} />
+                    <i style={{ top: "34px", left: "22px" }} />
+                    <i style={{ top: "26px", left: "44px" }} />
+                  </div>
+                  <div className="hallpass-code">
+                    <b>/register/teacher</b>
+                    ?token=7F3-91C<br />
+                    one-time use
+                  </div>
+                </div>
+                <ul className="hallpass-list">
+                  <li>Role auto-assigned</li>
+                  <li>School auto-linked</li>
+                  <li>Expires after first scan</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -446,6 +385,20 @@ const PAGE_CSS = `
     --blue:#4D7CFE; --blue-ink:#0B1B4D;
     --radius:14px;
   }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#101218; --surface:#1B1E26; --surface-2:#20232C;
+      --text:#F5F3EA; --text-soft:#A7ABB8;
+      --line:#F5F3EA; --shadow:#000000;
+      --green:#22D890; --yellow:#FFD65C; --coral:#FF6B70; --blue:#6E93FF;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#101218; --surface:#1B1E26; --surface-2:#20232C;
+    --text:#F5F3EA; --text-soft:#A7ABB8;
+    --line:#F5F3EA; --shadow:#000000;
+    --green:#22D890; --yellow:#FFD65C; --coral:#FF6B70; --blue:#6E93FF;
+  }
 
   *{box-sizing:border-box;}
   html{-webkit-text-size-adjust:100%;}
@@ -500,6 +453,13 @@ const PAGE_CSS = `
   }
   .logo span{color:var(--green);}
   .nav-actions{display:flex; align-items:center; gap:10px;}
+  .theme-toggle{
+    width:42px; height:42px; border:3px solid var(--line); border-radius:10px;
+    background:var(--surface); box-shadow:3px 3px 0 var(--shadow);
+    display:flex; align-items:center; justify-content:center; font-size:17px;
+    cursor:pointer; padding:0;
+  }
+  .theme-toggle:hover{transform:translate(-1px,-1px); box-shadow:4px 4px 0 var(--shadow);}
   .nav-login{display:none; font-weight:700; text-decoration:none; padding:10px 4px;}
   @media(min-width:640px){ .nav-login{display:inline-flex;} }
 
@@ -530,6 +490,33 @@ const PAGE_CSS = `
   .headline u svg{position:absolute; left:0; bottom:-6px; width:100%; height:12px;}
   .hero-copy{max-width:52ch; color:var(--text-soft); font-size:17px; margin:20px 0 30px; font-weight:500;}
   .hero-ctas{display:flex; gap:14px; flex-wrap:wrap;}
+
+  /* hall-pass hero card */
+  .hallpass-wrap{display:flex; justify-content:center;}
+  .hallpass{
+    width:100%; max-width:360px; background:var(--yellow); color:var(--yellow-ink);
+    border:3px solid var(--line); border-radius:18px; box-shadow:9px 9px 0 var(--shadow);
+    padding:22px; transform:rotate(-2deg); position:relative;
+  }
+  .hallpass::before{
+    content:""; position:absolute; top:-10px; left:50%; transform:translateX(-50%);
+    width:56px; height:18px; border:3px solid var(--line); border-radius:0 0 40px 40px;
+    background:var(--bg); border-top:none;
+  }
+  .hallpass-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .hallpass-tag{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.04em;}
+  .hallpass h3{font-size:20px; margin-bottom:6px;}
+  .hallpass p{font-size:13.5px; font-weight:600; opacity:.85; margin-bottom:16px;}
+  .hallpass-body{display:flex; gap:16px; align-items:center; background:rgba(255,255,255,.45); border:2px solid var(--line); border-radius:10px; padding:14px;}
+  .qr{width:66px; height:66px; position:relative; background:#fff; border:2px solid var(--line); border-radius:4px; flex-shrink:0;}
+  .qr-eye{position:absolute; width:16px; height:16px; border:3.5px solid var(--line);}
+  .qr-eye::after{content:""; position:absolute; inset:3.5px; background:var(--line);}
+  .qr-eye.tl{top:4px; left:4px;} .qr-eye.tr{top:4px; right:4px;} .qr-eye.bl{bottom:4px; left:4px;}
+  .qr i{position:absolute; width:4px; height:4px; background:var(--line); display:block;}
+  .hallpass-code{font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.7;}
+  .hallpass-code b{display:block; font-size:13px;}
+  .hallpass-list{list-style:none; margin:14px 0 0; padding:0; font-family:'IBM Plex Mono',monospace; font-size:12px; display:flex; flex-direction:column; gap:5px;}
+  .hallpass-list li::before{content:"— "; font-weight:700;}
 
   /* --- section headers --- */
   .sec-head{max-width:640px; margin-bottom:64px;}
