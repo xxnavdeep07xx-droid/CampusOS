@@ -342,7 +342,7 @@ export default function LandingPage() {
         </section>
 
         {/* ====== Final CTA ====== */}
-        <section className="wrap">
+        <section className="wrap" style={{ marginTop: "40px" }}>
           <div className="cta-band">
             <div>
               <h2>Ready to bring your campus online?</h2>
