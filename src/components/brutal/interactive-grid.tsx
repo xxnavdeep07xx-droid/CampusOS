@@ -3,25 +3,29 @@
 import { useEffect, useRef } from "react";
 
 /**
- * InteractiveGrid — a subtle grid of small squares that fills the hero
- * section background. Squares near the cursor light up in the accent
- * (green) color, creating an interactive "proximity" effect.
+ * InteractiveGrid — a subtle dot graph that covers the FULL viewport
+ * (position: fixed). Dots near the cursor light up in the accent green
+ * color, creating an interactive "proximity spotlight."
+ *
+ * This replaces the previous square grid. The dot pattern matches the
+ * reference image: small circular dots in a regular grid, with a
+ * localized cluster of brighter dots near the cursor.
  *
  * Implementation:
- *   - Two layers, both using the same SVG mask (a grid of 4×4px squares
- *     at 20px intervals):
- *       ::before = base layer, faint line-colored squares (8% opacity)
- *       ::after  = spotlight layer, green radial-gradient at cursor pos
+ *   - position: fixed; inset: 0; → covers the full viewport at all times
+ *     (stays put during scroll, so the graph is always visible behind
+ *     whatever section the user is looking at)
+ *   - Two layers:
+ *       ::before = base layer, faint dots everywhere
+ *       ::after  = spotlight, green dots near cursor (radial gradient
+ *                  masked to the dot pattern)
  *   - Mouse position tracked via window mousemove → CSS vars (--mx, --my)
- *   - The radial-gradient does the proximity falloff natively (no per-square
- *     JS calculation needed — the mask handles which pixels are visible)
- *   - Pure CSS animation, no requestAnimationFrame loop needed
- *   - pointer-events: none so it never blocks clicks on hero content
- *   - Respects prefers-reduced-motion (spotlight disabled, static grid only)
+ *   - pointer-events: none so it never blocks any clicks anywhere
+ *   - z-index: 0 (behind all page content which is z-index ≥ 1)
+ *   - Respects prefers-reduced-motion and hover: none (touch devices)
  *
- * Performance: the mask + gradient approach means the browser handles
- * everything in its compositor — no JS per frame, no DOM nodes per square.
- * Smooth on any device.
+ * Performance: mask + gradient approach — no JS per frame, no DOM nodes
+ * per dot. The browser's compositor handles everything natively.
  */
 export function InteractiveGrid() {
   const ref = useRef<HTMLDivElement>(null);
@@ -29,22 +33,20 @@ export function InteractiveGrid() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const parent = el.parentElement;
-    if (!parent) return;
 
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    // Only track mouse if the user doesn't prefer reduced motion
-    if (reduceMotion) return;
+    // Only track mouse on devices that have hover (not touch)
+    // and when the user doesn't prefer reduced motion
+    const hasHover = window.matchMedia("(hover: hover)").matches;
+    if (reduceMotion || !hasHover) return;
 
     function onMove(e: MouseEvent) {
-      const rect = parent.getBoundingClientRect();
-      // Only update when the hero is at least partially in view
-      if (rect.bottom < 0 || rect.top > window.innerHeight) return;
-      el.style.setProperty("--mx", e.clientX - rect.left + "px");
-      el.style.setProperty("--my", e.clientY - rect.top + "px");
+      // Fixed position → viewport coordinates = mouse client coordinates
+      el.style.setProperty("--mx", e.clientX + "px");
+      el.style.setProperty("--my", e.clientY + "px");
     }
 
     window.addEventListener("mousemove", onMove, { passive: true });
@@ -52,18 +54,17 @@ export function InteractiveGrid() {
   }, []);
 
   return (
-    <div ref={ref} className="hero-grid-bg" aria-hidden="true">
+    <div ref={ref} className="interactive-graph" aria-hidden="true">
       <style>{`
-        .hero-grid-bg {
-          /* SVG mask: a 4×4px white square at (8,8) in a 20×20px cell.
-             When used as mask-image, only the white squares are visible;
-             the transparent areas are hidden. This creates a grid of
-             small filled squares with gaps between them.
-             URL-encoded for use as a data: URL in CSS. */
-          --grid-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect x='8' y='8' width='4' height='4' fill='white'/%3E%3C/svg%3E");
+        .interactive-graph {
+          /* Dot mask: a small solid circle at the center of each 20×20 tile.
+             Used as mask-image so only the dot pixels are visible.
+             Black = opaque (visible), transparent = hidden.
+             Circle radius ~1.8px, centered at (10,10) in the tile. */
+          --dot-mask: radial-gradient(circle 1.8px at 10px 10px, #000 100%, transparent 100%);
 
-          position: absolute;
-          inset: 0;
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
           z-index: 0;
           pointer-events: none;
 
@@ -72,59 +73,56 @@ export function InteractiveGrid() {
           --my: -9999px;
         }
 
-        /* Base layer: faint line-colored squares everywhere.
-           Uses ::before so its opacity doesn't affect ::after. */
-        .hero-grid-bg::before {
+        /* Base layer: faint dots everywhere.
+           Uses radial-gradient as background directly (no mask needed —
+           the gradient itself creates the dot pattern with transparent
+           gaps between dots). */
+        .interactive-graph::before {
           content: "";
           position: absolute;
           inset: 0;
-          background-color: var(--line, #15171E);
-          -webkit-mask-image: var(--grid-mask);
-          mask-image: var(--grid-mask);
-          /* Repeat the mask pattern to fill the entire element */
-          -webkit-mask-size: 20px 20px;
-          mask-size: 20px 20px;
-          -webkit-mask-repeat: repeat;
-          mask-repeat: repeat;
-          opacity: 0.08;
+          background-image: radial-gradient(
+            circle 1.8px at 10px 10px,
+            var(--line, #15171E) 100%,
+            transparent 100%
+          );
+          background-size: 20px 20px;
+          background-position: 0 0;
+          opacity: 0.12;
         }
 
-        /* Spotlight layer: green squares near the cursor.
-           The radial-gradient provides smooth proximity falloff —
-           squares near the cursor are bright green, fading to
-           transparent at 140px radius. The mask ensures only the
-           square-shaped pixels are visible (not the full gradient). */
-        .hero-grid-bg::after {
+        /* Spotlight layer: green dots near the cursor.
+           A radial-gradient provides smooth proximity falloff (bright at
+           cursor → transparent at 160px radius). The mask ensures only
+           the dot-shaped pixels are visible, so the spotlight appears as
+           individual lit dots rather than a glow blob. */
+        .interactive-graph::after {
           content: "";
           position: absolute;
           inset: 0;
           background: radial-gradient(
-            circle 140px at var(--mx) var(--my),
+            circle 160px at var(--mx) var(--my),
             var(--green, #17B978) 0%,
             transparent 70%
           );
-          -webkit-mask-image: var(--grid-mask);
-          mask-image: var(--grid-mask);
+          -webkit-mask-image: var(--dot-mask);
+          mask-image: var(--dot-mask);
           -webkit-mask-size: 20px 20px;
           mask-size: 20px 20px;
           -webkit-mask-repeat: repeat;
           mask-repeat: repeat;
-          opacity: 0.55;
-          /* Smooth transition when mouse leaves (spotlight fades out) */
+          opacity: 0.6;
+          /* Smooth transition when mouse leaves the viewport */
           transition: opacity 0.4s ease-out;
         }
 
-        /* On touch devices / reduced motion: hide the spotlight,
-           keep just the static base grid. */
+        /* Touch devices / reduced motion: hide the spotlight,
+           keep just the static base dot grid. */
         @media (prefers-reduced-motion: reduce) {
-          .hero-grid-bg::after {
-            opacity: 0;
-          }
+          .interactive-graph::after { opacity: 0; }
         }
         @media (hover: none) {
-          .hero-grid-bg::after {
-            opacity: 0;
-          }
+          .interactive-graph::after { opacity: 0; }
         }
       `}</style>
     </div>

@@ -205,12 +205,12 @@ export default function LandingPage() {
       </header>
 
       <main>
+        {/* Interactive dot graph — fixed, covers the full viewport behind
+            all content. Dots light up near the cursor. */}
+        <InteractiveGrid />
+
         {/* ====== Hero ====== */}
         <section className="hero wrap">
-          {/* Interactive square grid — fills the hero background.
-              Subtle by default, squares light up near the cursor. */}
-          <InteractiveGrid />
-
           <div className="hero-grid">
             <div className="fade-up">
               <div className="stamps">
@@ -447,6 +447,8 @@ const PAGE_CSS = `
     position:sticky; top:0; z-index:40; background:var(--bg);
     border-bottom:3px solid var(--line);
   }
+  /* main sits above the fixed InteractiveGraph background (z-index: 0) */
+  main{ position:relative; z-index:1; }
   .nav{display:flex; align-items:center; justify-content:space-between; padding:16px 24px; gap:16px;}
   .logo{display:flex; align-items:center; gap:10px; font-weight:900; font-size:19px; text-decoration:none;}
   .logo-mark{
@@ -484,8 +486,6 @@ const PAGE_CSS = `
   .hero-grid{
     display:grid; grid-template-columns:1.15fr 1fr; gap:56px; align-items:center;
     width:100%;
-    /* Sit above the InteractiveGrid background (z-index: 0) */
-    position:relative; z-index:1;
   }
   .stamps{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:22px;}
   .stamp{
