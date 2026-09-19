@@ -3,20 +3,24 @@
 import { useEffect, useRef } from "react";
 
 /**
- * HallPassCard — 3D lanyard card (port of upload/hall-pass-lanyard.html).
+ * HallPassCard — 3D lanyard card.
  *
- * Features:
- *   - Real 2D verlet physics (rope + rigid card body)
- *   - 3D layer on top: yaw / pitch / thickness / glare (CSS 3D transforms)
- *   - On load: card DROPS from above, strap snaps taut, gentle sway
- *   - Mouse / touch: drag to move, fling, brush past to nudge,
- *     hover to tilt toward cursor, tap (no drag) to flip the card
- *   - SVG lanyard drawn as a Catmull-Rom spline through rope points
- *   - Respects prefers-reduced-motion (starts hanging, no drop)
+ * Faithful React/TSX port of /upload/hall-pass-lanyard.html.
  *
- * Integration: drop into any container. The stage gets min-height: 580px
- * and fills its parent's width. The strap can extend above the stage
- * (overflow: visible) so it visually hangs from above.
+ * Features (from the reference):
+ *   - On load the card DROPS from above, strap snaps taut, gentle sway.
+ *   - Real 2D verlet physics (rope + rigid card body) with a 3D layer on top
+ *     (yaw / pitch / thickness / glare) rendered with CSS 3D transforms.
+ *   - Mouse / touch: drag, fling, brush past to nudge, hover to tilt toward
+ *     cursor, click/tap (no drag) to flip the card.
+ *
+ * Notes:
+ *   - The strap above the anchor is drawn as a straight vertical line
+ *     `M p[0].x, p[0].y - 120 L p[0].x, p[0].y` (matches the reference).
+ *     This is intentional — the anchor is pinned, the top is fixed.
+ *   - Bounds check clamps X (left/right) and bottom Y only (matches reference).
+ *   - Respects prefers-reduced-motion (starts hanging, no drop).
+ *   - ResizeObserver recalculates rope length / card width on resize.
  */
 export function HallPassCard() {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -26,9 +30,8 @@ export function HallPassCard() {
   const sBodyRef = useRef<SVGPathElement>(null);
   const sRibRef = useRef<SVGPathElement>(null);
   const qrRef = useRef<HTMLDivElement>(null);
-  const hintRef = useRef<HTMLParagraphElement>(null);
 
-  // Static config — same content as the reference.
+  // Static content — matches the CONFIG object in the reference.
   const CFG = {
     eyebrow: "Staff invite",
     number: "0042",
@@ -102,13 +105,13 @@ export function HallPassCard() {
       y: number;
       px: number;
       py: number;
-      im: number; // inverse mass (0 = pinned)
+      im: number;
     }
     interface Con {
       a: Pt;
       b: Pt;
       rest: number;
-      max: boolean; // true = rope (can go slack, can't stretch)
+      max: boolean;
     }
     interface Drag {
       u: number;
@@ -174,12 +177,12 @@ export function HallPassCard() {
       /* --- initial pose --- */
       const th0 = drop ? 0.32 : 0;
       const cx0 = drop ? ax + Math.min(46, L * 0.15) : ax;
-      const cy0 = drop ? ay - L * 0.92 : ay + L; // dropping: rope folded up, card above → falls
+      const cy0 = drop ? ay - L * 0.92 : ay + L;
       const anchor = mk(ax, ay, 0);
       const rope: Pt[] = [anchor];
       for (let i = 1; i < N; i++) {
         const t = i / N;
-        rope.push(mk(ax + (cx0 - ax) * t, ay + (cy0 - ay) * t, 2.2)); // light rope points
+        rope.push(mk(ax + (cx0 - ax) * t, ay + (cy0 - ay) * t, 2.2));
       }
       const clip = mk(cx0, cy0, 1);
       rope.push(clip);
@@ -215,7 +218,7 @@ export function HallPassCard() {
           });
         }
 
-      if (drop) for (const p of pts) if (p.im) p.py = p.y - 700 * DT; // initial downward speed
+      if (drop) for (const p of pts) if (p.im) p.py = p.y - 700 * DT;
 
       const sim: Sim = {
         pts,
@@ -239,7 +242,7 @@ export function HallPassCard() {
         gy: 0.2,
         time: 0,
         step() {
-          const g2 = (G * DT * DT);
+          const g2 = G * DT * DT;
           for (const p of pts)
             if (p.im) {
               const vx = (p.x - p.px) * DAMP,
@@ -266,21 +269,12 @@ export function HallPassCard() {
               b.x -= dx * diff * (b.im / w);
               b.y -= dy * diff * (b.im / w);
             }
+          // Bounds — verbatim from reference: clamp X and bottom Y only.
           const pad = 4;
-          // Card top clamps at ay (the anchor Y). The card's TL/TR points sit
-          // slightly below the clip (gap = W*0.045), so allowing them up to ay
-          // keeps the card visible inside the stage. Going above would clip
-          // against the stage's overflow:hidden top edge.
-          const topClamp = ay + 4;
           for (const p of pts)
             if (p.im) {
               if (p.x < pad) p.x = pad;
               else if (p.x > width - pad) p.x = width - pad;
-              if (p.y < topClamp) {
-                // Soft clamp: dampen upward velocity, don't snap (avoid jitter)
-                p.y = topClamp;
-                if (p.py < p.y) p.py = p.y; // kill residual upward momentum
-              }
               if (p.y > height - pad) {
                 p.y = height - pad;
                 p.py = p.y + (p.py - p.y) * 0.2;
@@ -403,6 +397,8 @@ export function HallPassCard() {
 
     function strapPath(rope: Pt[]): string {
       const p = rope;
+      // Verbatim from reference: straight vertical line above the anchor,
+      // then Catmull-Rom spline through rope points.
       let d = `M${p[0].x.toFixed(1)},${(p[0].y - 120).toFixed(1)} L${p[0].x.toFixed(1)},${p[0].y.toFixed(1)}`;
       for (let i = 0; i < p.length - 1; i++) {
         const p0 = p[i - 1] || p[i],
@@ -430,7 +426,6 @@ export function HallPassCard() {
       sEdge.setAttribute("d", d);
       sBody.setAttribute("d", d);
       sRib.setAttribute("d", d);
-      // shimmer follows the tilt
       const s = 50 + Math.sin(sim.yaw) * 60 + a * 30;
       card.style.setProperty("--sheen", clamp(s, -20, 120).toFixed(1) + "%");
       card.style.setProperty("--gx", (sim.gx * 100).toFixed(1) + "%");
@@ -515,7 +510,7 @@ export function HallPassCard() {
       down = null;
     }
 
-    function onPointerUp(e: PointerEvent) {
+    function onPointerUp() {
       release();
     }
     function onPointerCancel() {
@@ -563,142 +558,224 @@ export function HallPassCard() {
   return (
     <div className="hp-stage" ref={stageRef} aria-label="Staff invite hall pass">
       <style>{`
+        /* ---- Local CSS variables: palette is fixed (reference values) ----
+           The reference uses a fixed dark navy + yellow palette that
+           looks great on both light and dark page backgrounds. We do
+           NOT override it with the page's --bg / --shadow vars because
+           the hall pass is meant to look like a single physical object
+           (the strap and plate color stay consistent regardless of the
+           surrounding page theme). The only adaptation is that the stage
+           background is transparent so it inherits the page surface. */
         .hp-stage{
-          --hp-bg: var(--bg, #FFFDF7);
+          --hp-bg: transparent;
           --hp-card: #ffd45c;
           --hp-card-hi: #ffe388;
           --hp-card-lo: #f7b93a;
           --hp-ink: #231a05;
-          --hp-plate: var(--shadow, #15171E);
+          --hp-plate: #050608;
           --hp-strap: #141417;
-          --hp-strap-edge: #ece8dc;
-          --hp-accent: var(--green, #17B978);
-          --hp-sans:"Archivo","Helvetica Neue",Arial,sans-serif;
-          --hp-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+          --hp-accent: #1fd68f;
+          --hp-sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+          --hp-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-          position:relative;
-          width:100%;
-          min-height:580px;
-          overflow:visible;
-          isolation:isolate;
-          font-family:var(--hp-sans);
+          position: relative;
+          width: 100%;
+          min-height: 580px;
+          overflow: hidden;
+          font-family: var(--hp-sans);
+          isolation: isolate;
         }
+        .hp-stage * { box-sizing: border-box; }
+
+        /* ---- strap (SVG) ---- */
         .hp-strap{
-          position:absolute; inset:0; width:100%; height:100%;
-          pointer-events:none; overflow:visible; z-index:1;
+          position: absolute; inset: 0; width: 100%; height: 100%;
+          pointer-events: none; overflow: visible; z-index: 1;
         }
-        .hp-strap path{fill:none; stroke-linejoin:round; stroke-linecap:butt}
-        .hp-strap .s-edge{ stroke:var(--hp-strap-edge); stroke-width:calc(var(--sw, 22px) + 4px) }
-        .hp-strap .s-body{ stroke:var(--hp-strap); stroke-width:var(--sw, 22px) }
-        .hp-strap .s-rib { stroke:#2b2b32; stroke-width:calc(var(--sw, 22px) - 3px); stroke-dasharray:2 5 }
+        .hp-strap path{ fill: none; stroke-linejoin: round; stroke-linecap: butt }
+        .hp-strap .s-edge{ stroke: #ece8dc; stroke-width: calc(var(--sw, 22px) + 4px) }
+        .hp-strap .s-body{ stroke: var(--hp-strap); stroke-width: var(--sw, 22px) }
+        .hp-strap .s-rib { stroke: #2b2b32; stroke-width: calc(var(--sw, 22px) - 3px); stroke-dasharray: 2 5 }
 
-        /* ----------------------------------------------------------------- card */
+        /* ---- card ---- */
         .hp-card{
-          position:absolute; left:0; top:0; z-index:2;
-          width:var(--w, 320px); height:var(--h, 365px);
-          font-size:calc(var(--w, 320px) / 24);
-          transform-origin:0 0; transform-style:preserve-3d; will-change:transform;
-          touch-action:none; user-select:none; -webkit-user-select:none; cursor:grab;
-          opacity:0;
+          position: absolute; left: 0; top: 0; z-index: 2;
+          width: var(--w, 320px); height: var(--h, 365px);
+          font-size: calc(var(--w, 320px) / 24);
+          transform-origin: 0 0; transform-style: preserve-3d; will-change: transform;
+          touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+          opacity: 0;
         }
-        .hp-ready .hp-card{ opacity:1; transition:opacity .18s ease-out }
-        .hp-stage.is-grabbed .hp-card{ cursor:grabbing }
+        .hp-ready .hp-card{ opacity: 1; transition: opacity .18s ease-out }
+        .hp-stage.is-grabbed .hp-card{ cursor: grabbing }
 
-        .hp-plate,.hp-core,.hp-face{ position:absolute; inset:0; border-radius:1.15em }
-        .hp-plate{ background:var(--hp-plate); backface-visibility:hidden; -webkit-backface-visibility:hidden;
-          transform:translate3d(.6em,.6em,-3px) }
-        .hp-plate.back{ transform:rotateY(180deg) translate3d(-.6em,.6em,-3px) }
-        .hp-core{ background:#c98a17 }
+        .hp-plate, .hp-core, .hp-face{
+          position: absolute; inset: 0; border-radius: 1.15em;
+        }
+        .hp-plate{
+          background: var(--hp-plate);
+          backface-visibility: hidden; -webkit-backface-visibility: hidden;
+          transform: translate3d(.6em, .6em, -3px);
+        }
+        .hp-plate.back{ transform: rotateY(180deg) translate3d(-.6em, .6em, -3px) }
+        .hp-core{ background: #c98a17 }
         .hp-face{
-          backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden;
-          display:flex; flex-direction:column; padding:2.5em 1.7em 1.25em; color:var(--hp-ink);
-          box-shadow:inset 0 0 0 .14em #fff7df;
+          backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden;
+          display: flex; flex-direction: column; padding: 2.5em 1.7em 1.25em; color: var(--hp-ink);
+          box-shadow: inset 0 0 0 .14em #fff7df;
         }
         .hp-front{
-          transform:translateZ(2px);
+          transform: translateZ(2px);
           background:
             radial-gradient(120% 70% at 15% 0%, var(--hp-card-hi) 0%, transparent 60%),
             linear-gradient(165deg, var(--hp-card), var(--hp-card-lo));
         }
         .hp-back{
-          transform:rotateY(180deg) translateZ(2px);
+          transform: rotateY(180deg) translateZ(2px);
           background:
             repeating-linear-gradient(-32deg, rgba(255,212,92,.06) 0 .12em, transparent .12em 1.1em),
             #17171c;
-          color:#ffe6a0;
+          color: #ffe6a0;
         }
         .hp-notch{
-          position:absolute; left:50%; top:0; width:2.5em; height:2.5em; margin:-1.25em 0 0 -1.25em; border-radius:50%;
-          background:var(--hp-bg); box-shadow:0 0 0 .16em #fff7df;
+          position: absolute; left: 50%; top: 0; width: 2.5em; height: 2.5em;
+          margin: -1.25em 0 0 -1.25em; border-radius: 50%;
+          background: var(--bg, #FFFDF7);
+          box-shadow: 0 0 0 .16em #fff7df;
         }
 
-        /* front content */
-        .hp-row{ display:flex; justify-content:space-between; align-items:baseline;
-          font-family:var(--hp-mono); font-weight:700; font-size:.74em; letter-spacing:.05em; text-transform:uppercase }
-        .hp-title{ margin:.45em 0 .15em; font-size:2.35em; line-height:1; font-weight:800; letter-spacing:-.03em }
-        .hp-sub{ margin:0; font-size:.94em; line-height:1.28; font-weight:500; max-width:21em }
-        .hp-scan{ display:flex; align-items:center; gap:1em; margin-top:.95em; padding:.8em; border-radius:1em;
-          background:rgba(255,255,255,.42); border:.1em solid rgba(255,255,255,.75) }
-        .hp-qr{ flex:none; width:6em; height:6em; padding:.4em; border-radius:.55em; background:#fff; color:#111;
-          display:grid; place-items:center; overflow:hidden }
-        .hp-qr>*{ width:100%; height:100%; display:block }
-        .hp-meta{ display:flex; flex-direction:column; gap:.35em; font-family:var(--hp-mono); min-width:0 }
-        .hp-path{ font-weight:700; font-size:1.02em; overflow-wrap:anywhere }
-        .hp-token{ font-size:.84em }
-        .hp-token b{ font-weight:700; background:rgba(35,26,5,.1); padding:.05em .3em; border-radius:.3em }
-        .hp-once{ font-size:.78em; opacity:.75; display:flex; align-items:center; gap:.5em }
-        .hp-once i{ width:.62em; height:.62em; border-radius:50%;
-          background:#12a56d; box-shadow:0 0 0 .18em rgba(18,165,109,.25);
-          animation:hp-pulse 2.2s ease-in-out infinite }
-        @keyframes hp-pulse{ 50%{ box-shadow:0 0 0 .38em rgba(18,165,109,0) } }
-        .hp-list{ list-style:none; margin:.95em 0 0; padding:0; display:grid; gap:.42em;
-          font-family:var(--hp-mono); font-size:.82em }
-        .hp-list li::before{ content:"—"; font-weight:700; margin-right:.65em }
-        .hp-foot{ margin-top:auto; padding-top:.7em; border-top:.13em dashed rgba(35,26,5,.45);
-          display:flex; justify-content:space-between; align-items:flex-end; gap:1em;
-          font-family:var(--hp-mono); font-size:.62em; font-weight:700; letter-spacing:.06em; text-transform:uppercase }
-        .hp-bars{ height:1.9em; flex:1; max-width:11em;
-          background:repeating-linear-gradient(90deg,#231a05 0 .14em,transparent .14em .32em,
-            #231a05 .32em .6em,transparent .6em .74em,#231a05 .74em .82em,transparent .82em 1.12em) }
-        .hp-sheen{ position:absolute; inset:0; pointer-events:none; mix-blend-mode:soft-light;
+        /* ---- front content ---- */
+        .hp-row{
+          display: flex; justify-content: space-between; align-items: baseline;
+          font-family: var(--hp-mono); font-weight: 700; font-size: .74em;
+          letter-spacing: .05em; text-transform: uppercase;
+        }
+        .hp-title{
+          margin: .45em 0 .15em; font-size: 2.35em; line-height: 1;
+          font-weight: 800; letter-spacing: -.03em;
+        }
+        .hp-sub{ margin: 0; font-size: .94em; line-height: 1.28; font-weight: 500; max-width: 21em }
+        .hp-scan{
+          display: flex; align-items: center; gap: 1em; margin-top: .95em; padding: .8em;
+          border-radius: 1em;
+          background: rgba(255,255,255,.42); border: .1em solid rgba(255,255,255,.75);
+        }
+        .hp-qr{
+          flex: none; width: 6em; height: 6em; padding: .4em; border-radius: .55em;
+          background: #fff; color: #111;
+          display: grid; place-items: center; overflow: hidden;
+        }
+        .hp-qr > *{ width: 100%; height: 100%; display: block }
+        .hp-meta{
+          display: flex; flex-direction: column; gap: .35em;
+          font-family: var(--hp-mono); min-width: 0;
+        }
+        .hp-path{ font-weight: 700; font-size: 1.02em; overflow-wrap: anywhere }
+        .hp-token{ font-size: .84em }
+        .hp-token b{
+          font-weight: 700; background: rgba(35,26,5,.1);
+          padding: .05em .3em; border-radius: .3em;
+        }
+        .hp-once{ font-size: .78em; opacity: .75; display: flex; align-items: center; gap: .5em }
+        .hp-once i{
+          width: .62em; height: .62em; border-radius: 50%;
+          background: #12a56d; box-shadow: 0 0 0 .18em rgba(18,165,109,.25);
+          animation: hp-pulse 2.2s ease-in-out infinite;
+        }
+        @keyframes hp-pulse{ 50%{ box-shadow: 0 0 0 .38em rgba(18,165,109,0) } }
+        .hp-list{
+          list-style: none; margin: .95em 0 0; padding: 0;
+          display: grid; gap: .42em;
+          font-family: var(--hp-mono); font-size: .82em;
+        }
+        .hp-list li::before{ content: "—"; font-weight: 700; margin-right: .65em }
+        .hp-foot{
+          margin-top: auto; padding-top: .7em;
+          border-top: .13em dashed rgba(35,26,5,.45);
+          display: flex; justify-content: space-between; align-items: flex-end; gap: 1em;
+          font-family: var(--hp-mono); font-size: .62em; font-weight: 700;
+          letter-spacing: .06em; text-transform: uppercase;
+        }
+        .hp-bars{
+          height: 1.9em; flex: 1; max-width: 11em;
+          background: repeating-linear-gradient(90deg,
+            #231a05 0 .14em, transparent .14em .32em,
+            #231a05 .32em .6em, transparent .6em .74em,
+            #231a05 .74em .82em, transparent .82em 1.12em);
+        }
+        .hp-sheen{
+          position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light;
           background:
-            radial-gradient(circle at var(--gx,50%) var(--gy,20%), rgba(255,255,255,.9), transparent 45%),
-            linear-gradient(105deg, transparent calc(var(--sheen,50%) - 18%),
-              rgba(255,255,255,.75) var(--sheen,50%),
-              transparent calc(var(--sheen,50%) + 18%));
-          opacity:.55 }
+            radial-gradient(circle at var(--gx, 50%) var(--gy, 20%), rgba(255,255,255,.9), transparent 45%),
+            linear-gradient(105deg,
+              transparent calc(var(--sheen, 50%) - 18%),
+              rgba(255,255,255,.75) var(--sheen, 50%),
+              transparent calc(var(--sheen, 50%) + 18%));
+          opacity: .55;
+        }
 
-        /* back content */
-        .hp-stripe{ margin:.4em -1.7em 0; height:3.1em; background:#050506 }
-        .hp-back h3{ margin:1.3em 0 .25em; font-size:1.55em; font-weight:800; letter-spacing:-.02em; color:var(--hp-card) }
-        .hp-back p{ margin:0; font-size:.9em; line-height:1.35; max-width:20em; opacity:.85 }
-        .hp-back .hp-foot{ border-top-color:rgba(255,230,160,.4); color:#ffe6a0 }
-        .hp-back .hp-bars{ background:repeating-linear-gradient(90deg,#ffe6a0 0 .14em,transparent .14em .32em,
-            #ffe6a0 .32em .6em,transparent .6em .74em,#ffe6a0 .74em .82em,transparent .82em 1.12em) }
-        .hp-sign{ margin-top:1.1em; height:3.4em; border-radius:.5em; background:#f5efdc;
-          color:#8a7a52; font-family:var(--hp-mono); font-size:.72em; display:flex; align-items:center; padding:0 1em }
+        /* ---- back content ---- */
+        .hp-stripe{ margin: .4em -1.7em 0; height: 3.1em; background: #050506 }
+        .hp-back h3{
+          margin: 1.3em 0 .25em; font-size: 1.55em; font-weight: 800;
+          letter-spacing: -.02em; color: var(--hp-card);
+        }
+        .hp-back p{ margin: 0; font-size: .9em; line-height: 1.35; max-width: 20em; opacity: .85 }
+        .hp-back .hp-foot{ border-top-color: rgba(255,230,160,.4); color: #ffe6a0 }
+        .hp-back .hp-bars{
+          background: repeating-linear-gradient(90deg,
+            #ffe6a0 0 .14em, transparent .14em .32em,
+            #ffe6a0 .32em .6em, transparent .6em .74em,
+            #ffe6a0 .74em .82em, transparent .82em 1.12em);
+        }
+        .hp-sign{
+          margin-top: 1.1em; height: 3.4em; border-radius: .5em;
+          background: #f5efdc; color: #8a7a52;
+          font-family: var(--hp-mono); font-size: .72em;
+          display: flex; align-items: center; padding: 0 1em;
+        }
 
-        /* metal clip */
-        .hp-clip{ position:absolute; left:0; top:0; z-index:3; pointer-events:none;
-          transform-origin:0 0; --cw:calc(var(--w, 320px) * .085); --ch:calc(var(--w, 320px) * .125) }
-        .hp-clip-body{ position:absolute; left:calc(var(--cw) / -2); top:calc(var(--ch) * -.3);
-          width:var(--cw); height:var(--ch);
-          border-radius:.45em .45em .8em .8em; border:2px solid #fff;
-          background:linear-gradient(90deg,#8d939d,#e4e7ec 45%,#a6acb6);
-          box-shadow:0 3px 6px rgba(0,0,0,.45), inset 0 -6px 8px rgba(0,0,0,.18) }
-        .hp-clip-body::after{ content:""; position:absolute; left:50%; top:44%;
-          width:34%; aspect-ratio:1; transform:translate(-50%,-50%); border-radius:50%;
-          background:#3a3d44; box-shadow:inset 0 2px 3px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.6) }
+        /* ---- metal clip ---- */
+        .hp-clip{
+          position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none;
+          transform-origin: 0 0;
+          --cw: calc(var(--w, 320px) * .085);
+          --ch: calc(var(--w, 320px) * .125);
+        }
+        .hp-clip-body{
+          position: absolute;
+          left: calc(var(--cw) / -2);
+          top: calc(var(--ch) * -.3);
+          width: var(--cw); height: var(--ch);
+          border-radius: .45em .45em .8em .8em;
+          border: 2px solid #fff;
+          background: linear-gradient(90deg, #8d939d, #e4e7ec 45%, #a6acb6);
+          box-shadow: 0 3px 6px rgba(0,0,0,.45), inset 0 -6px 8px rgba(0,0,0,.18);
+        }
+        .hp-clip-body::after{
+          content: "";
+          position: absolute; left: 50%; top: 44%;
+          width: 34%; aspect-ratio: 1;
+          transform: translate(-50%, -50%);
+          border-radius: 50%;
+          background: #3a3d44;
+          box-shadow: inset 0 2px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.6);
+        }
 
-        .hp-hint{ position:absolute; left:0; right:0; bottom:8px; margin:0; text-align:center; z-index:2;
-          font:400 12px/1 var(--hp-mono); color:var(--text-soft, rgba(82,86,95,.7));
-          transition:opacity .6s; pointer-events:none }
-        .hp-stage.has-touched .hp-hint{ opacity:0 }
+        /* ---- hint text ---- */
+        .hp-hint{
+          position: absolute; left: 0; right: 0; bottom: 18px;
+          margin: 0; text-align: center; z-index: 2;
+          font: 400 13px/1 var(--hp-mono);
+          color: var(--text-soft, rgba(82,86,95,.7));
+          transition: opacity .6s; pointer-events: none;
+        }
+        .hp-stage.has-touched .hp-hint{ opacity: 0 }
 
-        @media (prefers-reduced-motion:reduce){ .hp-once i{ animation:none } }
+        @media (prefers-reduced-motion: reduce){ .hp-once i{ animation: none } }
         @media (max-width: 720px){
-          .hp-stage{ min-height:520px }
-          .hp-hint{ font-size:11px }
+          .hp-stage{ min-height: 520px }
+          .hp-hint{ font-size: 11px }
         }
       `}</style>
 
@@ -778,9 +855,7 @@ export function HallPassCard() {
         <div className="hp-clip-body" />
       </div>
 
-      <p className="hp-hint" ref={hintRef}>
-        drag it · fling it · tap to flip
-      </p>
+      <p className="hp-hint">drag it · fling it · tap to flip</p>
     </div>
   );
 }
