@@ -479,7 +479,7 @@ export function HallPassCard() {
       sim.drag = { u: clamp(uv.u, 0, 1), v: clamp(uv.v, 0, 1), tx: p.x, ty: p.y };
       sim.hoverYaw = sim.hoverPitch = 0;
       down = { x: p.x, y: p.y, t: performance.now(), moved: false };
-      stage.classList.add("is-grabbed", "has-touched");
+      stage.classList.add("is-grabbed");
     }
 
     function onPointerMove(e: PointerEvent) {
@@ -797,21 +797,17 @@ export function HallPassCard() {
           box-shadow: inset 0 2px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.6);
         }
 
-        /* ---- hint text ---- */
-        .hp-hint{
-          position: absolute; left: 0; right: 0; bottom: 18px;
-          margin: 0; text-align: center; z-index: 2;
-          font: 400 13px/1 var(--hp-mono);
-          color: var(--text-soft, rgba(82,86,95,.7));
-          transition: opacity .6s; pointer-events: none;
-        }
-        .hp-stage.has-touched .hp-hint{ opacity: 0 }
+        /* ---- hint text removed ----
+           The original reference had a "drag it · fling it · tap to flip"
+           hint at the bottom of the stage. It was useful when the stage
+           was a small contained area, but now the stage spans the full
+           hero (with bottom: -72px), so the hint ended up overlapping
+           the green marquee strip below the hero — nearly invisible
+           (grey on green) and visually noisy. The drag/flip behavior
+           is still discoverable via the cursor change (grab → grabbing)
+           and the card's responsiveness to hover/mouse. */
 
         @media (prefers-reduced-motion: reduce){ .hp-once i{ animation: none } }
-        @media (max-width: 720px){
-          .hp-stage{ min-height: 520px }
-          .hp-hint{ font-size: 11px }
-        }
       `}</style>
 
       <svg className="hp-strap" aria-hidden="true">
@@ -889,8 +885,6 @@ export function HallPassCard() {
       <div className="hp-clip" ref={clipRef}>
         <div className="hp-clip-body" />
       </div>
-
-      <p className="hp-hint">drag it · fling it · tap to flip</p>
     </div>
   );
 }
