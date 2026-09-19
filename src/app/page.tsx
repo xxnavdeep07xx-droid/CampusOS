@@ -111,10 +111,35 @@ export default function LandingPage() {
   return (
     <>
       {/* Force light mode on the landing page — override any .dark class
-          set by the dashboard's theme toggle. */}
+          set by the dashboard's theme toggle. This removes .dark from <html>
+          on mount and prevents the global dark mode CSS from applying. */}
       <style dangerouslySetInnerHTML={{ __html: `
-        body { background: #FFFDF7 !important; color: #15171E !important; }
-        .dark body { background: #FFFDF7 !important; color: #15171E !important; }
+        html.dark { background: #FFFDF7 !important; }
+        html.dark body { background: #FFFDF7 !important; color: #15171E !important; }
+        html.dark .bg-white { background: #FFFFFF !important; }
+        html.dark .bg-slate-50 { background: #F3F1E6 !important; }
+        html.dark .bg-slate-100 { background: #F3F1E6 !important; }
+        html.dark .bg-slate-800 { background: #1B1E26 !important; }
+        html.dark .bg-slate-900 { background: #15171E !important; }
+        html.dark .bg-[#FDFBF7] { background: #FFFDF7 !important; }
+        html.dark .text-slate-900 { color: #15171E !important; }
+        html.dark .text-slate-700 { color: #52565F !important; }
+        html.dark .text-slate-600 { color: #52565F !important; }
+        html.dark .text-slate-500 { color: #52565F !important; }
+        html.dark .text-slate-400 { color: #8B8F9A !important; }
+        html.dark .text-slate-300 { color: #A7ABB8 !important; }
+        html.dark .text-[#FDFBF7] { color: #FFFDF7 !important; }
+        html.dark .border-slate-900 { border-color: #15171E !important; }
+        html.dark .border-slate-200 { border-color: #E5E3DA !important; }
+        html.dark .border-slate-100 { border-color: #F3F1E6 !important; }
+        html.dark .divide-slate-200 > * + * { border-color: #E5E3DA !important; }
+        html.dark .shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] { box-shadow: 3px 3px 0 0 #15171E !important; }
+        html.dark .shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] { box-shadow: 4px 4px 0 0 #15171E !important; }
+        html.dark .shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] { box-shadow: 6px 6px 0 0 #15171E !important; }
+        html.dark .shadow-[9px_9px_0px_0px_rgba(15,23,42,1)] { box-shadow: 9px 9px 0 0 #15171E !important; }
+        html.dark input::placeholder { color: #8B8F9A !important; }
+        html.dark select { background: #FFFFFF !important; color: #15171E !important; }
+        html.dark select option { background: #FFFFFF !important; color: #15171E !important; }
       `}} />
       <header>
         <div className="nav wrap">
