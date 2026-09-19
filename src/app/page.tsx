@@ -106,55 +106,9 @@ const FEATURES = [
   { icon: "🗓️", title: "Unified calendar", desc: "Timetables, due dates, and lesson plans in a single view." },
 ] as const;
 
-/** Inline script that runs BEFORE hydration to set data-theme on <html>.
- *  Uses a separate localStorage key ('campusos-theme') so it does not
- *  collide with the layout's .dark-class toggle. */
-const earlyThemeScript = `
-(function(){
-  try {
-    var t = localStorage.getItem('campusos-theme');
-    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-  } catch (e) {}
-})();
-`;
-
-/** Theme toggle button wiring — runs after DOM is ready. */
-const themeToggleScript = `
-(function(){
-  function init(){
-    var root = document.documentElement;
-    var btn = document.getElementById('themeToggle');
-    if (!btn) return;
-    function currentTheme(){
-      var explicit = root.getAttribute('data-theme');
-      if (explicit) return explicit;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    function updateIcon(t){
-      btn.textContent = t === 'dark' ? '\\u2600\\uFE0F' : '\\u{1F319}';
-      btn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
-    }
-    updateIcon(currentTheme());
-    btn.addEventListener('click', function(){
-      var next = currentTheme() === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', next);
-      try { localStorage.setItem('campusos-theme', next); } catch(e){}
-      updateIcon(next);
-    });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-})();
-`;
-
 export default function LandingPage() {
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: earlyThemeScript + "\\n" + themeToggleScript }} />
-
       <header>
         <div className="nav wrap">
           <Link href="/" className="logo">
@@ -167,9 +121,6 @@ export default function LandingPage() {
             <Link href="/login" className="nav-login">
               Log in
             </Link>
-            <button className="theme-toggle" id="themeToggle" aria-label="Switch to dark mode">
-              🌙
-            </button>
             <Link href="/register/principal" className="btn btn-primary btn-sm">
               Register your school
             </Link>
@@ -385,20 +336,6 @@ const PAGE_CSS = `
     --blue:#4D7CFE; --blue-ink:#0B1B4D;
     --radius:14px;
   }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --bg:#101218; --surface:#1B1E26; --surface-2:#20232C;
-      --text:#F5F3EA; --text-soft:#A7ABB8;
-      --line:#F5F3EA; --shadow:#000000;
-      --green:#22D890; --yellow:#FFD65C; --coral:#FF6B70; --blue:#6E93FF;
-    }
-  }
-  :root[data-theme="dark"]{
-    --bg:#101218; --surface:#1B1E26; --surface-2:#20232C;
-    --text:#F5F3EA; --text-soft:#A7ABB8;
-    --line:#F5F3EA; --shadow:#000000;
-    --green:#22D890; --yellow:#FFD65C; --coral:#FF6B70; --blue:#6E93FF;
-  }
 
   *{box-sizing:border-box;}
   html{-webkit-text-size-adjust:100%;}
@@ -453,13 +390,6 @@ const PAGE_CSS = `
   }
   .logo span{color:var(--green);}
   .nav-actions{display:flex; align-items:center; gap:10px;}
-  .theme-toggle{
-    width:42px; height:42px; border:3px solid var(--line); border-radius:10px;
-    background:var(--surface); box-shadow:3px 3px 0 var(--shadow);
-    display:flex; align-items:center; justify-content:center; font-size:17px;
-    cursor:pointer; padding:0;
-  }
-  .theme-toggle:hover{transform:translate(-1px,-1px); box-shadow:4px 4px 0 var(--shadow);}
   .nav-login{display:none; font-weight:700; text-decoration:none; padding:10px 4px;}
   @media(min-width:640px){ .nav-login{display:inline-flex;} }
 
