@@ -110,86 +110,147 @@ const FEATURES = [
 export default function LandingPage() {
   return (
     <>
-      {/* Force light mode on the landing page — override the global .dark CSS
-          by re-setting the page's own CSS variables to their light values. */}
+      {/* Landing page theme: support both light and dark mode.
+          When .dark is on <html> (from the dashboard toggle), use dark
+          CSS variable values. Otherwise use light values. */}
       <style dangerouslySetInnerHTML={{ __html: `
         html.dark {
-          --bg: #FFFDF7 !important;
-          --surface: #FFFFFF !important;
-          --surface-2: #F3F1E6 !important;
-          --text: #15171E !important;
-          --text-soft: #52565F !important;
-          --line: #15171E !important;
-          --shadow: #15171E !important;
-          --green: #17B978 !important;
-          --green-ink: #0B3626 !important;
-          --yellow: #FFC93C !important;
-          --yellow-ink: #3D2E00 !important;
-          --coral: #FF5A5F !important;
-          --coral-ink: #3D0C0E !important;
-          --blue: #4D7CFE !important;
-          --blue-ink: #0B1B4D !important;
-          background: #FFFDF7 !important;
+          --bg: #101218;
+          --surface: #1B1E26;
+          --surface-2: #20232C;
+          --text: #F5F3EA;
+          --text-soft: #A7ABB8;
+          --line: #F5F3EA;
+          --shadow: #000000;
+          --green: #22D890;
+          --green-ink: #061209;
+          --yellow: #FFD65C;
+          --yellow-ink: #1A1500;
+          --coral: #FF6B70;
+          --coral-ink: #1A0303;
+          --blue: #6E93FF;
+          --blue-ink: #050B1A;
+          background: #101218 !important;
         }
-        html.dark body,
-        html.dark main,
-        html.dark header,
-        html.dark section,
-        html.dark footer,
-        html.dark .brut,
-        html.dark .hallpass,
-        html.dark .hallpass-wrap,
-        html.dark .step,
-        html.dark .why-card,
-        html.dark .feature-card,
-        html.dark .cta-band,
-        html.dark .nav {
-          background: var(--bg, #FFFDF7) !important;
-          color: var(--text, #15171E) !important;
+        html.dark body {
+          background: #101218 !important;
+          color: #F5F3EA !important;
+        }
+        html.dark .hero {
+          background: #101218 !important;
         }
         html.dark .brut,
         html.dark .step,
         html.dark .why-card,
         html.dark .feature-card {
-          background: var(--surface, #FFFFFF) !important;
+          background: #1B1E26 !important;
+          border-color: #F5F3EA !important;
+          box-shadow: 6px 6px 0 #000000 !important;
+        }
+        html.dark .hallpass {
+          background: #FFD65C !important;
+          color: #1A1500 !important;
+          border-color: #F5F3EA !important;
+          box-shadow: 9px 9px 0 #000000 !important;
+        }
+        html.dark .hallpass::before {
+          background: #101218 !important;
+          border-color: #F5F3EA !important;
+        }
+        html.dark .hallpass-pin {
+          background: #22D890 !important;
+          border-color: #F5F3EA !important;
+        }
+        html.dark .hallpass-string {
+          background: #F5F3EA !important;
+        }
+        html.dark .hallpass-string::after {
+          background: #F5F3EA !important;
         }
         html.dark .cta-band {
-          background: var(--green, #17B978) !important;
-          color: var(--green-ink, #0B3626) !important;
+          background: #22D890 !important;
+          color: #061209 !important;
+          border-color: #F5F3EA !important;
+          box-shadow: 9px 9px 0 #000000 !important;
+        }
+        html.dark .cta-band .btn {
+          background: #101218 !important;
+          color: #F5F3EA !important;
         }
         html.dark .eyebrow {
-          background: var(--surface-2, #F3F1E6) !important;
-        }
-        html.dark .hero {
-          background: var(--bg, #FFFDF7) !important;
+          background: #20232C !important;
+          border-color: #F5F3EA !important;
+          color: #F5F3EA !important;
         }
         html.dark .stamp {
-          background: var(--surface, #FFFFFF) !important;
+          border-color: #F5F3EA !important;
         }
         html.dark .stamp.g {
-          background: var(--green, #17B978) !important;
-          color: var(--green-ink, #0B3626) !important;
+          background: #22D890 !important;
+          color: #061209 !important;
         }
         html.dark .stamp.b {
-          background: var(--blue, #4D7CFE) !important;
+          background: #6E93FF !important;
           color: #fff !important;
         }
         html.dark .role-tag {
-          background: var(--bg, #FFFDF7) !important;
-          color: var(--text, #15171E) !important;
+          background: #101218 !important;
+          color: #F5F3EA !important;
+          border-color: #F5F3EA !important;
         }
-        html.dark .hallpass {
-          background: var(--yellow, #FFC93C) !important;
-          color: var(--yellow-ink, #3D2E00) !important;
+        html.dark .hallpass-body {
+          background: rgba(255,255,255,0.15) !important;
+          border-color: #F5F3EA !important;
         }
-        html.dark .hallpass-pin {
-          background: var(--green, #17B978) !important;
+        html.dark .qr {
+          background: #fff !important;
+          border-color: #1A1500 !important;
         }
-        html.dark .hallpass-string {
-          background: var(--line, #15171E) !important;
+        html.dark .hallpass-code {
+          color: #1A1500 !important;
         }
-        html.dark .hallpass-string::after {
-          background: var(--line, #15171E) !important;
+        html.dark .hallpass-list {
+          color: #1A1500 !important;
+        }
+        html.dark .step {
+          border-color: #F5F3EA !important;
+          border-right-color: #F5F3EA !important;
+        }
+        html.dark .step-no {
+          color: #A7ABB8 !important;
+        }
+        html.dark .why-num {
+          color: #A7ABB8 !important;
+        }
+        html.dark .feature-icon {
+          border-color: #F5F3EA !important;
+        }
+        html.dark .logo-mark {
+          border-color: #F5F3EA !important;
+          box-shadow: 3px 3px 0 #000000 !important;
+        }
+        html.dark .btn {
+          border-color: #F5F3EA !important;
+          box-shadow: 5px 5px 0 #000000 !important;
+        }
+        html.dark .btn-primary {
+          background: #22D890 !important;
+          color: #061209 !important;
+        }
+        html.dark .btn:hover {
+          box-shadow: 7px 7px 0 #000000 !important;
+        }
+        html.dark header {
+          border-color: #F5F3EA !important;
+        }
+        html.dark .nav {
+          background: #101218 !important;
+        }
+        html.dark footer {
+          border-color: #F5F3EA !important;
+        }
+        html.dark .headline u svg path {
+          stroke: #FF6B70 !important;
         }
       `}} />
       <header>
