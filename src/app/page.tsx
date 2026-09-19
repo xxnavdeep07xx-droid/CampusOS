@@ -107,6 +107,58 @@ const FEATURES = [
   { icon: "🗓️", title: "Unified calendar", desc: "Timetables, due dates, and lesson plans in a single view." },
 ] as const;
 
+/** Items shown in the scrolling marquee strip below the hero.
+ *  Mix of high-level categories (the kind a parent or principal would
+ *  recognize) and the specific FEATURES list. Uppercase + monospace
+ *  matches the brutalist ID-card aesthetic of the rest of the page. */
+const MARQUEE_ITEMS = [
+  "Report cards",
+  "Admissions",
+  "Attendance",
+  "Gradebook",
+  "Lesson plans",
+  "Class management",
+  "Smart attendance",
+  "Grading queue",
+  "Teacher drive",
+  "Announcements",
+  "Direct messaging",
+  "Notifications",
+  "Unified calendar",
+  "Timetables",
+  "Behavior notes",
+  "Leave requests",
+  "Transport",
+  "Library",
+  "Fees & invoices",
+  "Whiteboard",
+  "Quizzes",
+  "Parent portal",
+] as const;
+
+/** FeatureMarquee — a single-row scrolling strip of features separated
+ *  by ✦ stars. Pure CSS animation (no JS), so it runs smoothly even on
+ *  low-end devices. Duplicates the item list once and translates the
+ *  track by -50%, which produces a seamless loop. Respects
+ *  prefers-reduced-motion (animation pauses). */
+function FeatureMarquee() {
+  // Duplicate the list so the track can loop seamlessly when it
+  // translates by -50% of its own width.
+  const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
+  return (
+    <div className="marquee" aria-hidden="true">
+      <div className="marquee-track">
+        {items.map((label, i) => (
+          <span className="marquee-item" key={i}>
+            <span className="marquee-text">{label}</span>
+            <span className="marquee-star" aria-hidden="true">✦</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Inline script that runs BEFORE hydration to set data-theme on <html>.
  *  Follows the system theme (prefers-color-scheme) automatically.
  *  Listens for live system theme changes and updates instantly. */
@@ -199,6 +251,9 @@ export default function LandingPage() {
               padding) via negative offsets, so the card can swing freely. */}
           <HallPassCard />
         </section>
+
+        {/* ====== Feature marquee — scrolling strip right after hero ====== */}
+        <FeatureMarquee />
 
         {/* ====== Roles ====== */}
         <section className="wrap">
@@ -426,6 +481,65 @@ const PAGE_CSS = `
   .headline u svg{position:absolute; left:0; bottom:-6px; width:100%; height:12px;}
   .hero-copy{max-width:52ch; color:var(--text-soft); font-size:17px; margin:20px 0 30px; font-weight:500;}
   .hero-ctas{display:flex; gap:14px; flex-wrap:wrap;}
+
+  /* --- feature marquee (scrolling strip below hero) ---
+     A single-row ticker that scrolls left-to-right seamlessly.
+     The track duplicates the item list once and translates by -50%,
+     which produces a continuous loop with no visible jump.
+     Uses the project's --green / --green-ink so it adapts to light
+     and dark themes. */
+  .marquee{
+    /* Full-width strip (breaks out of the .wrap container if needed) */
+    width:100%;
+    background:var(--green);
+    color:var(--green-ink);
+    border-top:3px solid var(--line);
+    border-bottom:3px solid var(--line);
+    overflow:hidden;
+    /* Mask the edges so items fade in/out instead of getting cut hard */
+    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+    mask-image:linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+    padding:18px 0;
+    position:relative;
+  }
+  .marquee-track{
+    display:flex;
+    align-items:center;
+    flex-wrap:nowrap;
+    white-space:nowrap;
+    width:max-content;
+    will-change:transform;
+    animation:marquee-scroll 32s linear infinite;
+  }
+  .marquee:hover .marquee-track{ animation-play-state:paused; }
+  @keyframes marquee-scroll{
+    from{ transform:translateX(0); }
+    to  { transform:translateX(-50%); }
+  }
+  .marquee-item{
+    display:inline-flex;
+    align-items:center;
+    flex-shrink:0;
+    padding:0 22px;
+  }
+  .marquee-text{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-weight:700;
+    font-size:clamp(14px, 1.3vw, 18px);
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    line-height:1;
+  }
+  .marquee-star{
+    margin-left:22px;
+    font-size:1.1em;
+    line-height:1;
+    /* Slightly transparent so the stars feel like dividers, not items */
+    opacity:.7;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .marquee-track{ animation:none; }
+  }
 
   /* --- section headers --- */
   .sec-head{max-width:640px; margin-bottom:64px;}
