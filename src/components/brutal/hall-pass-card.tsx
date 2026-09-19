@@ -375,6 +375,12 @@ export function HallPassCard() {
 
     function layout(drop: boolean) {
       const r = stage.getBoundingClientRect();
+      // If the stage is hidden (e.g. display: none on mobile via CSS
+      // media query), getBoundingClientRect returns zeros. Skip the
+      // layout entirely — the card won't be visible, so there's nothing
+      // to render. This prevents the physics sim from running with
+      // bogus dimensions and producing a tiny card at (0, 0).
+      if (r.width === 0 || r.height === 0) return;
       sw = r.width;
       sh = r.height;
       const L = clamp(sh * 0.28, 110, 300);
@@ -535,7 +541,11 @@ export function HallPassCard() {
     layout(!reduceMotion);
     rafId = requestAnimationFrame(frame);
 
-    /* ---- resize observer ---- */
+    /* ---- resize observer ----
+       Also handles visibility changes (e.g. CSS media query toggling
+       display: none on mobile). When the stage goes from hidden to
+       visible (or vice versa), its dimensions change from/to zero,
+       triggering a re-layout. */
     let rt: ReturnType<typeof setTimeout> | undefined;
     const ro = new ResizeObserver(() => {
       clearTimeout(rt);

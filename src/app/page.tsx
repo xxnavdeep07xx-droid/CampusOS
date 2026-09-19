@@ -463,9 +463,23 @@ const PAGE_CSS = `
   }
   .kicker{font-family:'IBM Plex Mono',monospace; color:var(--text-soft); font-size:14px; margin:14px 0 0;}
 
-  /* --- hero --- */
-  .hero{padding:64px 0 72px; position:relative;}
-  .hero-grid{display:grid; grid-template-columns:1.15fr 1fr; gap:56px; align-items:center;}
+  /* --- hero ---
+     Fills the viewport on load (min-height: 100svh). Content is
+     vertically centered so it looks balanced on tall and short
+     screens. The marquee below only becomes visible when the user
+     scrolls past the hero. svh = small viewport height (mobile-safe:
+     accounts for browser chrome dynamically). */
+  .hero{
+    padding:64px 0 72px;
+    position:relative;
+    min-height:100svh;
+    display:flex;
+    align-items:center;
+  }
+  .hero-grid{
+    display:grid; grid-template-columns:1.15fr 1fr; gap:56px; align-items:center;
+    width:100%;
+  }
   .stamps{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:22px;}
   .stamp{
     font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; letter-spacing:.03em;
@@ -631,6 +645,10 @@ const PAGE_CSS = `
 
   @media(max-width:920px){
     .hero-grid{grid-template-columns:1fr;}
+    /* Hide the hall pass card on mobile — it's absolutely positioned
+       over the hero's right column, which doesn't exist when the grid
+       stacks to one column. Showing it would overlap the hero text. */
+    .hp-stage{display:none !important;}
     .roles-grid{grid-template-columns:repeat(2,1fr);}
     .steps{grid-template-columns:repeat(2,1fr);}
     .step{border-right:none; border-bottom:3px dashed var(--line);}
