@@ -1,608 +1,776 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 /**
- * HallPassCard — ID card hanging from a lanyard that starts at the top
- * of the page. On load, the card falls from above the viewport with
- * real gravity physics (acceleration + bounce on settle).
+ * HallPassCard — 3D lanyard card (port of upload/hall-pass-lanyard.html).
  *
- * 3D treatment (this iteration):
- *   - Card body has a glossy laminate sheen (diagonal light gradient)
- *   - Beveled edges: top/left highlight, bottom/right shadow
- *   - Subtle perspective tilt (rotateX) so the card recedes slightly
- *   - Text & QR get an embossed feel (text-shadow + inset highlight)
- *   - The metal clip gets hinge, bolt, and metallic reflection details
- *   - Lanyard gets fabric weave texture and stitched edges
+ * Features:
+ *   - Real 2D verlet physics (rope + rigid card body)
+ *   - 3D layer on top: yaw / pitch / thickness / glare (CSS 3D transforms)
+ *   - On load: card DROPS from above, strap snaps taut, gentle sway
+ *   - Mouse / touch: drag to move, fling, brush past to nudge,
+ *     hover to tilt toward cursor, tap (no drag) to flip the card
+ *   - SVG lanyard drawn as a Catmull-Rom spline through rope points
+ *   - Respects prefers-reduced-motion (starts hanging, no drop)
  *
- * Physics: the card uses a simple gravity simulation:
- *   - velocity accumulates each frame (gravity = 0.8px/frame²)
- *   - position updates by velocity
- *   - when card reaches resting position, it bounces (velocity *= -0.4)
- *   - bounces dampen until velocity < threshold → settled
- *   - after settling, a gentle idle sway starts (pendulum)
+ * Integration: drop into any container. The stage gets min-height: 580px
+ * and fills its parent's width. The strap can extend above the stage
+ * (overflow: visible) so it visually hangs from above.
  */
 export function HallPassCard() {
-  const [y, setY] = useState(-600); // start above viewport
-  const [rotate, setRotate] = useState(0);
-  const [tilt, setTilt] = useState(0); // rotateX perspective (3D lean)
-  const yRef = useRef(-600);
-  const velocityRef = useRef(0);
-  const settledRef = useRef(false);
-  const swayTimeRef = useRef(0);
-  const rafRef = useRef<number>(0);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const clipRef = useRef<HTMLDivElement>(null);
+  const sEdgeRef = useRef<SVGPathElement>(null);
+  const sBodyRef = useRef<SVGPathElement>(null);
+  const sRibRef = useRef<SVGPathElement>(null);
+  const qrRef = useRef<HTMLDivElement>(null);
+  const hintRef = useRef<HTMLParagraphElement>(null);
 
-  // Resting Y position (0 = card top at the lanyard bottom)
-  const REST_Y = 0;
-  const GRAVITY = 0.8;
-  const BOUNCE = 0.35;
-  const SETTLE_THRESHOLD = 1.5;
+  // Static config — same content as the reference.
+  const CFG = {
+    eyebrow: "Staff invite",
+    number: "0042",
+    title: "Hall Pass",
+    subtitle: "Scan to join — role and school are filled in for you.",
+    path: "/register/teacher",
+    token: "7F3-91C",
+    usage: "one-time use",
+    perks: ["Role auto-assigned", "School auto-linked", "Expires after first scan"],
+    school: "Your school",
+  };
 
   useEffect(() => {
-    function animate(timestamp: number) {
-      if (!settledRef.current) {
-        // Gravity phase: accelerate downward
-        velocityRef.current += GRAVITY;
-        yRef.current += velocityRef.current;
+    const stage = stageRef.current;
+    const card = cardRef.current;
+    const clipEl = clipRef.current;
+    const sEdge = sEdgeRef.current;
+    const sBody = sBodyRef.current;
+    const sRib = sRibRef.current;
+    const qrBox = qrRef.current;
+    if (!stage || !card || !clipEl || !sEdge || !sBody || !sRib || !qrBox) return;
 
-        // Bounce when hitting resting position
-        if (yRef.current >= REST_Y) {
-          yRef.current = REST_Y;
-          velocityRef.current *= -BOUNCE;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-          if (Math.abs(velocityRef.current) < SETTLE_THRESHOLD) {
-            settledRef.current = true;
-            yRef.current = REST_Y;
-            swayTimeRef.current = timestamp;
-          }
-        }
-
-        setY(yRef.current);
-
-        // Tumble (rotation during fall) — eases out as card approaches rest
-        const fallProgress = Math.min(1, (REST_Y - yRef.current) / 600);
-        const tumble = (1 - fallProgress) * 8;
-        setRotate(tumble);
-
-        // 3D lean: while falling, the card leans back slightly (rotateX ~ -8°)
-        // and flattens to ~0° as it settles — gives a sense of weight.
-        const lean = (1 - fallProgress) * 8;
-        setTilt(-lean);
-      } else {
-        // Sway phase: gentle pendulum after settling
-        const swayElapsed = (timestamp - swayTimeRef.current) / 1000;
-        const swayAngle = Math.sin(swayElapsed * 0.6) * 2;
-        setRotate(swayAngle);
-        // Tilt follows sway subtly — when swung right, top tilts back a touch
-        const swayTilt = Math.sin(swayElapsed * 0.6) * 1.2;
-        setTilt(swayTilt);
+    /* ============================================================
+       QR placeholder generator (FNV-1a hash → deterministic grid)
+       ============================================================ */
+    function placeholderQR(seed: string): string {
+      const n = 25;
+      let h = 2166136261 >>> 0;
+      for (const ch of String(seed)) {
+        h ^= ch.charCodeAt(0);
+        h = Math.imul(h, 16777619) >>> 0;
       }
+      const rnd = () => {
+        h = (h + 0x6d2b79f5) >>> 0;
+        let t = Math.imul(h ^ (h >>> 15), 1 | h);
+        t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const finder = (i: number, j: number) =>
+        i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4);
+      let rects = "";
+      for (let r = 0; r < n; r++)
+        for (let c = 0; c < n; c++) {
+          let on: boolean;
+          const inTL = r < 8 && c < 8,
+            inTR = r < 8 && c >= n - 8,
+            inBL = r >= n - 8 && c < 8;
+          if (inTL || inTR || inBL) {
+            const i = inBL ? r - (n - 8) : r,
+              j = inTR ? c - (n - 8) : c;
+            on = i < 7 && j < 7 && finder(i, j);
+          } else on = rnd() > 0.52;
+          if (on) rects += `<rect x="${c}" y="${r}" width="1.02" height="1.02"/>`;
+        }
+      return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" fill="currentColor" role="img" aria-label="QR code placeholder">${rects}</svg>`;
+    }
+    qrBox.innerHTML = placeholderQR(CFG.path + CFG.token);
 
-      rafRef.current = requestAnimationFrame(animate);
+    /* ============================================================
+       Physics — verlet rope + rigid card body
+       Coordinates are px, origin = top-left of the stage.
+       ============================================================ */
+    const TAU = Math.PI * 2;
+    const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+    const DT = 1 / 120;
+
+    interface Pt {
+      x: number;
+      y: number;
+      px: number;
+      py: number;
+      im: number; // inverse mass (0 = pinned)
+    }
+    interface Con {
+      a: Pt;
+      b: Pt;
+      rest: number;
+      max: boolean; // true = rope (can go slack, can't stretch)
+    }
+    interface Drag {
+      u: number;
+      v: number;
+      tx: number;
+      ty: number;
+    }
+    interface Sim {
+      pts: Pt[];
+      rope: Pt[];
+      clip: Pt;
+      TL: Pt;
+      TR: Pt;
+      BR: Pt;
+      BL: Pt;
+      W: number;
+      H: number;
+      drag: Drag | null;
+      flipped: boolean;
+      yaw: number;
+      yawV: number;
+      pitch: number;
+      pitchV: number;
+      hoverYaw: number;
+      hoverPitch: number;
+      gx: number;
+      gy: number;
+      time: number;
+      step: () => void;
+      _applyDrag: () => void;
+      toUV: (x: number, y: number) => { u: number; v: number };
+      angle: () => number;
+      nudge: (vx: number, vy: number) => void;
+      flip: () => void;
+      settle: (seconds: number) => void;
     }
 
-    rafRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(rafRef.current);
+    function createSim(o: {
+      ax: number;
+      ay: number;
+      W: number;
+      H: number;
+      L: number;
+      gap: number;
+      width: number;
+      height: number;
+      drop: boolean;
+    }): Sim {
+      const { ax, ay, W, H, L, gap, width, height, drop } = o;
+      const G = 4200,
+        DAMP = 0.9965,
+        ITERS = 10,
+        N = 9,
+        seg = L / N;
+
+      const pts: Pt[] = [];
+      const mk = (x: number, y: number, im: number): Pt => {
+        const p: Pt = { x, y, px: x, py: y, im };
+        pts.push(p);
+        return p;
+      };
+
+      /* --- initial pose --- */
+      const th0 = drop ? 0.32 : 0;
+      const cx0 = drop ? ax + Math.min(46, L * 0.15) : ax;
+      const cy0 = drop ? ay - L * 0.92 : ay + L; // dropping: rope folded up, card above → falls
+      const anchor = mk(ax, ay, 0);
+      const rope: Pt[] = [anchor];
+      for (let i = 1; i < N; i++) {
+        const t = i / N;
+        rope.push(mk(ax + (cx0 - ax) * t, ay + (cy0 - ay) * t, 2.2)); // light rope points
+      }
+      const clip = mk(cx0, cy0, 1);
+      rope.push(clip);
+
+      const cs = Math.cos(th0),
+        sn = Math.sin(th0);
+      const place = (lx: number, ly: number): Pt =>
+        mk(cx0 + lx * cs - ly * sn, cy0 + lx * sn + ly * cs, 1);
+      const TL = place(-W / 2, gap),
+        TR = place(W / 2, gap),
+        BR = place(W / 2, gap + H),
+        BL = place(-W / 2, gap + H);
+      const cardPts: Pt[] = [clip, TL, TR, BR, BL];
+      const local: [number, number][] = [
+        [0, 0],
+        [-W / 2, gap],
+        [W / 2, gap],
+        [W / 2, gap + H],
+        [-W / 2, gap + H],
+      ];
+
+      /* --- constraints --- */
+      const cons: Con[] = [];
+      for (let i = 0; i < N; i++)
+        cons.push({ a: rope[i], b: rope[i + 1], rest: seg, max: true });
+      for (let i = 0; i < 5; i++)
+        for (let j = i + 1; j < 5; j++) {
+          cons.push({
+            a: cardPts[i],
+            b: cardPts[j],
+            rest: Math.hypot(local[i][0] - local[j][0], local[i][1] - local[j][1]),
+            max: false,
+          });
+        }
+
+      if (drop) for (const p of pts) if (p.im) p.py = p.y - 700 * DT; // initial downward speed
+
+      const sim: Sim = {
+        pts,
+        rope,
+        clip,
+        TL,
+        TR,
+        BR,
+        BL,
+        W,
+        H,
+        drag: null,
+        flipped: false,
+        yaw: 0,
+        yawV: 0,
+        pitch: 0,
+        pitchV: 0,
+        hoverYaw: 0,
+        hoverPitch: 0,
+        gx: 0.5,
+        gy: 0.2,
+        time: 0,
+        step() {
+          const g2 = (G * DT * DT);
+          for (const p of pts)
+            if (p.im) {
+              const vx = (p.x - p.px) * DAMP,
+                vy = (p.y - p.py) * DAMP;
+              p.px = p.x;
+              p.py = p.y;
+              p.x += vx;
+              p.y += vy + g2;
+            }
+          if (this.drag) this._applyDrag();
+          for (let it = 0; it < ITERS; it++)
+            for (const c of cons) {
+              const a = c.a,
+                b = c.b;
+              const dx = b.x - a.x,
+                dy = b.y - a.y;
+              const d = Math.hypot(dx, dy) || 1e-6;
+              if (c.max && d <= c.rest) continue;
+              const w = a.im + b.im;
+              if (!w) continue;
+              const diff = (d - c.rest) / d;
+              a.x += dx * diff * (a.im / w);
+              a.y += dy * diff * (a.im / w);
+              b.x -= dx * diff * (b.im / w);
+              b.y -= dy * diff * (b.im / w);
+            }
+          const pad = 4;
+          for (const p of pts)
+            if (p.im) {
+              if (p.x < pad) p.x = pad;
+              else if (p.x > width - pad) p.x = width - pad;
+              if (p.y > height - pad) {
+                p.y = height - pad;
+                p.py = p.y + (p.py - p.y) * 0.2;
+              }
+            }
+
+          /* --- 3D: yaw / pitch as damped springs driven by the card's motion --- */
+          let vx = 0,
+            vy = 0;
+          for (const p of [TL, TR, BR, BL]) {
+            vx += p.x - p.px;
+            vy += p.y - p.py;
+          }
+          vx = vx / 4 / DT;
+          vy = vy / 4 / DT;
+          const base = this.flipped ? Math.PI : 0;
+          const k = Math.round((this.yaw - base) / TAU);
+          const yTarget = base + k * TAU + this.hoverYaw;
+          const yAcc = -46 * (this.yaw - yTarget) - 6.2 * this.yawV + clamp(0.045 * vx, -40, 40);
+          this.yawV = clamp(this.yawV + yAcc * DT, -32, 32);
+          this.yaw += this.yawV * DT;
+
+          const pTarget = this.hoverPitch + clamp(-vy * 0.00025, -0.35, 0.35);
+          const pAcc = -60 * (this.pitch - pTarget) - 9 * this.pitchV;
+          this.pitchV += pAcc * DT;
+          this.pitch += this.pitchV * DT;
+          this.time += DT;
+        },
+        _applyDrag() {
+          const d = this.drag;
+          const P: Pt[] = [TL, TR, BR, BL];
+          const w = [
+            (1 - d.u) * (1 - d.v),
+            d.u * (1 - d.v),
+            d.u * d.v,
+            (1 - d.u) * d.v,
+          ];
+          let gx = 0,
+            gy = 0,
+            s = 0;
+          for (let i = 0; i < 4; i++) {
+            gx += w[i] * P[i].x;
+            gy += w[i] * P[i].y;
+            s += w[i] * w[i];
+          }
+          const k = 0.5,
+            ex = (d.tx - gx) * k,
+            ey = (d.ty - gy) * k;
+          for (let i = 0; i < 4; i++) {
+            P[i].x += (w[i] / s) * ex;
+            P[i].y += (w[i] / s) * ey;
+          }
+        },
+        toUV(x: number, y: number) {
+          const ex = TR.x - TL.x,
+            ey = TR.y - TL.y,
+            fx = BL.x - TL.x,
+            fy = BL.y - TL.y;
+          const px = x - TL.x,
+            py = y - TL.y;
+          return {
+            u: (px * ex + py * ey) / (W * W),
+            v: (px * fx + py * fy) / (H * H),
+          };
+        },
+        angle() {
+          return Math.atan2(TR.y - TL.y, TR.x - TL.x);
+        },
+        nudge(vx: number, vy: number) {
+          const f = DT * 0.02;
+          for (const p of [TL, TR, BR, BL, clip]) {
+            p.px -= vx * f;
+            p.py -= vy * f;
+          }
+          this.yawV += clamp(vx * 0.0012, -6, 6);
+        },
+        flip() {
+          this.flipped = !this.flipped;
+          this.yawV += this.flipped ? 7 : -7;
+        },
+        settle(seconds: number) {
+          for (let i = 0; i < seconds / DT; i++) this.step();
+        },
+      };
+      return sim;
+    }
+
+    /* ============================================================
+       DOM / rendering
+       ============================================================ */
+    let sim: Sim | null = null;
+    let sw = 0,
+      sh = 0,
+      W = 0,
+      H = 0,
+      ax = 0,
+      ay = 0;
+
+    function layout(drop: boolean) {
+      const r = stage.getBoundingClientRect();
+      sw = r.width;
+      sh = r.height;
+      const L = clamp(sh * 0.28, 110, 300);
+      ay = -24;
+      ax = sw / 2;
+      W = clamp(Math.min(sw * 0.86, 360, (sh - L - 60) / 1.14), 200, 360);
+      H = W * 1.14;
+      const gap = W * 0.045;
+      stage.style.setProperty("--w", W + "px");
+      stage.style.setProperty("--h", H + "px");
+      stage.style.setProperty("--sw", Math.round(W * 0.085) + "px");
+      stage.classList.remove("hp-ready");
+      sim = createSim({ ax, ay, W, H, L, gap, width: sw, height: sh, drop });
+      if (!drop) sim.settle(5);
+      render();
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => stage.classList.add("hp-ready"))
+      );
+    }
+
+    function strapPath(rope: Pt[]): string {
+      const p = rope;
+      let d = `M${p[0].x.toFixed(1)},${(p[0].y - 120).toFixed(1)} L${p[0].x.toFixed(1)},${p[0].y.toFixed(1)}`;
+      for (let i = 0; i < p.length - 1; i++) {
+        const p0 = p[i - 1] || p[i],
+          p1 = p[i],
+          p2 = p[i + 1],
+          p3 = p[i + 2] || p2;
+        d +=
+          ` C${(p1.x + (p2.x - p0.x) / 6).toFixed(1)},${(p1.y + (p2.y - p0.y) / 6).toFixed(1)} ` +
+          `${(p2.x - (p3.x - p1.x) / 6).toFixed(1)},${(p2.y - (p3.y - p1.y) / 6).toFixed(1)} ` +
+          `${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+      }
+      return d;
+    }
+
+    function render() {
+      if (!sim) return;
+      const a = sim.angle(),
+        tl = sim.TL;
+      card.style.transform =
+        `translate3d(${tl.x.toFixed(2)}px,${tl.y.toFixed(2)}px,0) rotate(${a.toFixed(4)}rad) ` +
+        `translate(${W / 2}px,${H / 2}px) perspective(1100px) rotateX(${sim.pitch.toFixed(4)}rad) rotateY(${sim.yaw.toFixed(4)}rad) ` +
+        `translate(${-W / 2}px,${-H / 2}px)`;
+      clipEl.style.transform = `translate(${sim.clip.x.toFixed(2)}px,${sim.clip.y.toFixed(2)}px) rotate(${a.toFixed(4)}rad)`;
+      const d = strapPath(sim.rope);
+      sEdge.setAttribute("d", d);
+      sBody.setAttribute("d", d);
+      sRib.setAttribute("d", d);
+      // shimmer follows the tilt
+      const s = 50 + Math.sin(sim.yaw) * 60 + a * 30;
+      card.style.setProperty("--sheen", clamp(s, -20, 120).toFixed(1) + "%");
+      card.style.setProperty("--gx", (sim.gx * 100).toFixed(1) + "%");
+      card.style.setProperty("--gy", (sim.gy * 100).toFixed(1) + "%");
+    }
+
+    /* ---- fixed-timestep loop ---- */
+    let last = performance.now(),
+      acc = 0;
+    let rafId = 0;
+    function frame(t: number) {
+      rafId = requestAnimationFrame(frame);
+      const dt = Math.min(0.05, (t - last) / 1000);
+      last = t;
+      acc += dt;
+      while (acc >= DT) {
+        sim?.step();
+        acc -= DT;
+      }
+      render();
+    }
+
+    /* ---- pointer interaction ---- */
+    let down: { x: number; y: number; t: number; moved: boolean } | null = null;
+    let prev: { x: number; y: number; t: number } | null = null;
+    const local = (e: PointerEvent) => {
+      const r = stage.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+
+    function onPointerDown(e: PointerEvent) {
+      e.preventDefault();
+      try {
+        card.setPointerCapture(e.pointerId);
+      } catch (_) {
+        /* noop */
+      }
+      if (!sim) return;
+      const p = local(e),
+        uv = sim.toUV(p.x, p.y);
+      sim.drag = { u: clamp(uv.u, 0, 1), v: clamp(uv.v, 0, 1), tx: p.x, ty: p.y };
+      sim.hoverYaw = sim.hoverPitch = 0;
+      down = { x: p.x, y: p.y, t: performance.now(), moved: false };
+      stage.classList.add("is-grabbed", "has-touched");
+    }
+
+    function onPointerMove(e: PointerEvent) {
+      if (!sim) return;
+      const p = local(e),
+        now = performance.now();
+      if (sim.drag) {
+        sim.drag.tx = clamp(p.x, 0, sw);
+        sim.drag.ty = clamp(p.y, 0, sh);
+        if (down && Math.hypot(p.x - down.x, p.y - down.y) > 6) down.moved = true;
+      } else if (e.pointerType === "mouse") {
+        const uv = sim.toUV(p.x, p.y);
+        const inside = uv.u >= 0 && uv.u <= 1 && uv.v >= 0 && uv.v <= 1;
+        if (inside) {
+          sim.hoverYaw = (uv.u - 0.5) * 0.55;
+          sim.hoverPitch = -(uv.v - 0.5) * 0.4;
+          sim.gx = uv.u;
+          sim.gy = uv.v;
+          if (prev) {
+            const dtm = Math.max(1, now - prev.t);
+            const vx = clamp(((p.x - prev.x) / dtm) * 1000, -2500, 2500),
+              vy = clamp(((p.y - prev.y) / dtm) * 1000, -2500, 2500);
+            sim.nudge(vx, vy);
+          }
+        } else {
+          sim.hoverYaw = sim.hoverPitch = 0;
+        }
+      }
+      prev = { x: p.x, y: p.y, t: now };
+    }
+
+    function release() {
+      if (!sim) return;
+      if (!sim.drag) return;
+      sim.drag = null;
+      stage.classList.remove("is-grabbed");
+      if (down && !down.moved && performance.now() - down.t < 350) sim.flip();
+      down = null;
+    }
+
+    function onPointerUp(e: PointerEvent) {
+      release();
+    }
+    function onPointerCancel() {
+      release();
+    }
+    function onPointerLeave() {
+      if (!sim) return;
+      if (!sim.drag) sim.hoverYaw = sim.hoverPitch = 0;
+    }
+
+    card.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
+    stage.addEventListener("pointerleave", onPointerLeave);
+
+    /* ---- boot ---- */
+    layout(!reduceMotion);
+    rafId = requestAnimationFrame(frame);
+
+    /* ---- resize observer ---- */
+    let rt: ReturnType<typeof setTimeout> | undefined;
+    const ro = new ResizeObserver(() => {
+      clearTimeout(rt);
+      rt = setTimeout(() => {
+        const r = stage.getBoundingClientRect();
+        if (Math.abs(r.width - sw) > 1 || Math.abs(r.height - sh) > 1) layout(false);
+      }, 150);
+    });
+    ro.observe(stage);
+
+    /* ---- cleanup ---- */
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(rt);
+      ro.disconnect();
+      card.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+      stage.removeEventListener("pointerleave", onPointerLeave);
+    };
   }, []);
 
   return (
-    <div className="hallpass-container">
-      {/* Lanyard — starts from the very top of the page */}
-      <div className="lanyard-top">
-        {/* Fabric weave texture overlay */}
-        <div className="lanyard-weave" />
-        {/* Stitched edge highlights */}
-        <div className="lanyard-stitch lanyard-stitch-l" />
-        <div className="lanyard-stitch lanyard-stitch-r" />
-        {/* Subtle drape shading (darker near top, lighter at bottom) */}
-        <div className="lanyard-drape" />
-      </div>
+    <div className="hp-stage" ref={stageRef} aria-label="Staff invite hall pass">
+      <style>{`
+        .hp-stage{
+          --hp-bg: var(--bg, #FFFDF7);
+          --hp-card: #ffd45c;
+          --hp-card-hi: #ffe388;
+          --hp-card-lo: #f7b93a;
+          --hp-ink: #231a05;
+          --hp-plate: var(--shadow, #15171E);
+          --hp-strap: #141417;
+          --hp-strap-edge: #ece8dc;
+          --hp-accent: var(--green, #17B978);
+          --hp-sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+          --hp-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 
-      {/* Metal clip — full 3D treatment */}
-      <div className="lanyard-clip">
-        {/* Top bar — visible from below, has its own gradient */}
-        <div className="clip-topbar" />
-        {/* Bolt — the rivet on top of the clip body */}
-        <div className="clip-bolt" />
-        {/* Hook / catch plate that grips the card hole */}
-        <div className="clip-hook" />
-        {/* Metallic reflection sweep — animated subtle highlight */}
-        <div className="clip-shine" />
-      </div>
+          position:relative;
+          width:100%;
+          min-height:580px;
+          overflow:visible;
+          isolation:isolate;
+          font-family:var(--hp-sans);
+        }
+        .hp-strap{
+          position:absolute; inset:0; width:100%; height:100%;
+          pointer-events:none; overflow:visible; z-index:1;
+        }
+        .hp-strap path{fill:none; stroke-linejoin:round; stroke-linecap:butt}
+        .hp-strap .s-edge{ stroke:var(--hp-strap-edge); stroke-width:calc(var(--sw, 22px) + 4px) }
+        .hp-strap .s-body{ stroke:var(--hp-strap); stroke-width:var(--sw, 22px) }
+        .hp-strap .s-rib { stroke:#2b2b32; stroke-width:calc(var(--sw, 22px) - 3px); stroke-dasharray:2 5 }
 
-      {/* The card — positioned by physics */}
+        /* ----------------------------------------------------------------- card */
+        .hp-card{
+          position:absolute; left:0; top:0; z-index:2;
+          width:var(--w, 320px); height:var(--h, 365px);
+          font-size:calc(var(--w, 320px) / 24);
+          transform-origin:0 0; transform-style:preserve-3d; will-change:transform;
+          touch-action:none; user-select:none; -webkit-user-select:none; cursor:grab;
+          opacity:0;
+        }
+        .hp-ready .hp-card{ opacity:1; transition:opacity .18s ease-out }
+        .hp-stage.is-grabbed .hp-card{ cursor:grabbing }
+
+        .hp-plate,.hp-core,.hp-face{ position:absolute; inset:0; border-radius:1.15em }
+        .hp-plate{ background:var(--hp-plate); backface-visibility:hidden; -webkit-backface-visibility:hidden;
+          transform:translate3d(.6em,.6em,-3px) }
+        .hp-plate.back{ transform:rotateY(180deg) translate3d(-.6em,.6em,-3px) }
+        .hp-core{ background:#c98a17 }
+        .hp-face{
+          backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden;
+          display:flex; flex-direction:column; padding:2.5em 1.7em 1.25em; color:var(--hp-ink);
+          box-shadow:inset 0 0 0 .14em #fff7df;
+        }
+        .hp-front{
+          transform:translateZ(2px);
+          background:
+            radial-gradient(120% 70% at 15% 0%, var(--hp-card-hi) 0%, transparent 60%),
+            linear-gradient(165deg, var(--hp-card), var(--hp-card-lo));
+        }
+        .hp-back{
+          transform:rotateY(180deg) translateZ(2px);
+          background:
+            repeating-linear-gradient(-32deg, rgba(255,212,92,.06) 0 .12em, transparent .12em 1.1em),
+            #17171c;
+          color:#ffe6a0;
+        }
+        .hp-notch{
+          position:absolute; left:50%; top:0; width:2.5em; height:2.5em; margin:-1.25em 0 0 -1.25em; border-radius:50%;
+          background:var(--hp-bg); box-shadow:0 0 0 .16em #fff7df;
+        }
+
+        /* front content */
+        .hp-row{ display:flex; justify-content:space-between; align-items:baseline;
+          font-family:var(--hp-mono); font-weight:700; font-size:.74em; letter-spacing:.05em; text-transform:uppercase }
+        .hp-title{ margin:.45em 0 .15em; font-size:2.35em; line-height:1; font-weight:800; letter-spacing:-.03em }
+        .hp-sub{ margin:0; font-size:.94em; line-height:1.28; font-weight:500; max-width:21em }
+        .hp-scan{ display:flex; align-items:center; gap:1em; margin-top:.95em; padding:.8em; border-radius:1em;
+          background:rgba(255,255,255,.42); border:.1em solid rgba(255,255,255,.75) }
+        .hp-qr{ flex:none; width:6em; height:6em; padding:.4em; border-radius:.55em; background:#fff; color:#111;
+          display:grid; place-items:center; overflow:hidden }
+        .hp-qr>*{ width:100%; height:100%; display:block }
+        .hp-meta{ display:flex; flex-direction:column; gap:.35em; font-family:var(--hp-mono); min-width:0 }
+        .hp-path{ font-weight:700; font-size:1.02em; overflow-wrap:anywhere }
+        .hp-token{ font-size:.84em }
+        .hp-token b{ font-weight:700; background:rgba(35,26,5,.1); padding:.05em .3em; border-radius:.3em }
+        .hp-once{ font-size:.78em; opacity:.75; display:flex; align-items:center; gap:.5em }
+        .hp-once i{ width:.62em; height:.62em; border-radius:50%;
+          background:#12a56d; box-shadow:0 0 0 .18em rgba(18,165,109,.25);
+          animation:hp-pulse 2.2s ease-in-out infinite }
+        @keyframes hp-pulse{ 50%{ box-shadow:0 0 0 .38em rgba(18,165,109,0) } }
+        .hp-list{ list-style:none; margin:.95em 0 0; padding:0; display:grid; gap:.42em;
+          font-family:var(--hp-mono); font-size:.82em }
+        .hp-list li::before{ content:"—"; font-weight:700; margin-right:.65em }
+        .hp-foot{ margin-top:auto; padding-top:.7em; border-top:.13em dashed rgba(35,26,5,.45);
+          display:flex; justify-content:space-between; align-items:flex-end; gap:1em;
+          font-family:var(--hp-mono); font-size:.62em; font-weight:700; letter-spacing:.06em; text-transform:uppercase }
+        .hp-bars{ height:1.9em; flex:1; max-width:11em;
+          background:repeating-linear-gradient(90deg,#231a05 0 .14em,transparent .14em .32em,
+            #231a05 .32em .6em,transparent .6em .74em,#231a05 .74em .82em,transparent .82em 1.12em) }
+        .hp-sheen{ position:absolute; inset:0; pointer-events:none; mix-blend-mode:soft-light;
+          background:
+            radial-gradient(circle at var(--gx,50%) var(--gy,20%), rgba(255,255,255,.9), transparent 45%),
+            linear-gradient(105deg, transparent calc(var(--sheen,50%) - 18%),
+              rgba(255,255,255,.75) var(--sheen,50%),
+              transparent calc(var(--sheen,50%) + 18%));
+          opacity:.55 }
+
+        /* back content */
+        .hp-stripe{ margin:.4em -1.7em 0; height:3.1em; background:#050506 }
+        .hp-back h3{ margin:1.3em 0 .25em; font-size:1.55em; font-weight:800; letter-spacing:-.02em; color:var(--hp-card) }
+        .hp-back p{ margin:0; font-size:.9em; line-height:1.35; max-width:20em; opacity:.85 }
+        .hp-back .hp-foot{ border-top-color:rgba(255,230,160,.4); color:#ffe6a0 }
+        .hp-back .hp-bars{ background:repeating-linear-gradient(90deg,#ffe6a0 0 .14em,transparent .14em .32em,
+            #ffe6a0 .32em .6em,transparent .6em .74em,#ffe6a0 .74em .82em,transparent .82em 1.12em) }
+        .hp-sign{ margin-top:1.1em; height:3.4em; border-radius:.5em; background:#f5efdc;
+          color:#8a7a52; font-family:var(--hp-mono); font-size:.72em; display:flex; align-items:center; padding:0 1em }
+
+        /* metal clip */
+        .hp-clip{ position:absolute; left:0; top:0; z-index:3; pointer-events:none;
+          transform-origin:0 0; --cw:calc(var(--w, 320px) * .085); --ch:calc(var(--w, 320px) * .125) }
+        .hp-clip-body{ position:absolute; left:calc(var(--cw) / -2); top:calc(var(--ch) * -.3);
+          width:var(--cw); height:var(--ch);
+          border-radius:.45em .45em .8em .8em; border:2px solid #fff;
+          background:linear-gradient(90deg,#8d939d,#e4e7ec 45%,#a6acb6);
+          box-shadow:0 3px 6px rgba(0,0,0,.45), inset 0 -6px 8px rgba(0,0,0,.18) }
+        .hp-clip-body::after{ content:""; position:absolute; left:50%; top:44%;
+          width:34%; aspect-ratio:1; transform:translate(-50%,-50%); border-radius:50%;
+          background:#3a3d44; box-shadow:inset 0 2px 3px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.6) }
+
+        .hp-hint{ position:absolute; left:0; right:0; bottom:8px; margin:0; text-align:center; z-index:2;
+          font:400 12px/1 var(--hp-mono); color:var(--text-soft, rgba(82,86,95,.7));
+          transition:opacity .6s; pointer-events:none }
+        .hp-stage.has-touched .hp-hint{ opacity:0 }
+
+        @media (prefers-reduced-motion:reduce){ .hp-once i{ animation:none } }
+        @media (max-width: 720px){
+          .hp-stage{ min-height:520px }
+          .hp-hint{ font-size:11px }
+        }
+      `}</style>
+
+      <svg className="hp-strap" aria-hidden="true">
+        <path className="s-edge" ref={sEdgeRef} />
+        <path className="s-body" ref={sBodyRef} />
+        <path className="s-rib" ref={sRibRef} />
+      </svg>
+
       <div
-        className="hallpass-card-wrap"
-        style={{
-          transform: `translateY(${y}px) rotate(${rotate}deg) rotateX(${tilt}deg)`,
-        }}
+        className="hp-card"
+        ref={cardRef}
+        role="img"
+        aria-label="Staff invite hall pass. Drag to move, tap to flip."
       >
-        <div className="hallpass-3d-stage">
-          <div className="hallpass">
-            {/* Hole at top where clip goes through — now with depth (inner shadow) */}
-            <div className="hallpass-hole">
-              <div className="hallpass-hole-inner" />
-            </div>
+        <div className="hp-plate" />
+        <div className="hp-plate back" />
+        <div className="hp-core" style={{ transform: "translateZ(-1.5px)" }} />
+        <div className="hp-core" style={{ transform: "translateZ(0)" }} />
+        <div className="hp-core" style={{ transform: "translateZ(1.5px)" }} />
 
-            {/* Card thickness — beveled edge highlight (top/left) */}
-            <div className="hallpass-bevel-tl" />
-            {/* Card thickness — beveled edge shadow (bottom/right) */}
-            <div className="hallpass-bevel-br" />
-
-            {/* Glossy laminate sheen — diagonal light reflection */}
-            <div className="hallpass-sheen" />
-            {/* Secondary smaller highlight — top right corner */}
-            <div className="hallpass-sheen-corner" />
-
-            <div className="hallpass-head">
-              <span className="hallpass-tag">Staff invite</span>
-              <span className="hallpass-tag">No. 0042</span>
-            </div>
-            <h3>Hall Pass</h3>
-            <p>Scan to join — role and school are filled in for you.</p>
-            <div className="hallpass-body">
-              <div className="qr">
-                <div className="qr-sheen" />
-                <div className="qr-eye tl" />
-                <div className="qr-eye tr" />
-                <div className="qr-eye bl" />
-                <i style={{ top: "8px", left: "34px" }} />
-                <i style={{ top: "16px", left: "42px" }} />
-                <i style={{ top: "24px", left: "30px" }} />
-                <i style={{ top: "34px", left: "46px" }} />
-                <i style={{ top: "42px", left: "36px" }} />
-                <i style={{ top: "44px", left: "8px" }} />
-                <i style={{ top: "34px", left: "22px" }} />
-                <i style={{ top: "26px", left: "44px" }} />
-              </div>
-              <div className="hallpass-code">
-                <b>/register/teacher</b>
-                ?token=7F3-91C
-                <br />
-                one-time use
-              </div>
-            </div>
-            <ul className="hallpass-list">
-              <li>Role auto-assigned</li>
-              <li>School auto-linked</li>
-              <li>Expires after first scan</li>
-            </ul>
-            {/* Watermark — subtle raised seal in the bottom-right */}
-            <div className="hallpass-watermark">VERIFIED</div>
+        {/* FRONT */}
+        <div className="hp-face hp-front">
+          <i className="hp-notch" />
+          <div className="hp-row">
+            <span>{CFG.eyebrow}</span>
+            <span>
+              No. {CFG.number}
+            </span>
           </div>
+          <h2 className="hp-title">{CFG.title}</h2>
+          <p className="hp-sub">{CFG.subtitle}</p>
+          <div className="hp-scan">
+            <div className="hp-qr" ref={qrRef} />
+            <div className="hp-meta">
+              <span className="hp-path">{CFG.path}</span>
+              <span className="hp-token">
+                ?token=<b>{CFG.token}</b>
+              </span>
+              <span className="hp-once">
+                <i />
+                <span>{CFG.usage}</span>
+              </span>
+            </div>
+          </div>
+          <ul className="hp-list">
+            {CFG.perks.map((perk) => (
+              <li key={perk}>{perk}</li>
+            ))}
+          </ul>
+          <div className="hp-foot">
+            <span>{CFG.school}</span>
+            <span className="hp-bars" />
+          </div>
+          <div className="hp-sheen" />
+        </div>
+
+        {/* BACK */}
+        <div className="hp-face hp-back">
+          <i className="hp-notch" />
+          <div className="hp-stripe" />
+          <h3>{CFG.school}</h3>
+          <p>
+            This pass is issued to one person and works once. If you didn&apos;t expect it,
+            don&apos;t scan it — tell the front office.
+          </p>
+          <div className="hp-sign">signed at first scan</div>
+          <div className="hp-foot">
+            <span>Non-transferable</span>
+            <span className="hp-bars" />
+          </div>
+          <div className="hp-sheen" />
         </div>
       </div>
 
-      <style>{`
-        /* Container */
-        .hallpass-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          position: relative;
-          overflow: visible;
-          perspective: 1200px;
-        }
+      <div className="hp-clip" ref={clipRef}>
+        <div className="hp-clip-body" />
+      </div>
 
-        /* Lanyard — fabric strap reaching to the top of the page */
-        .lanyard-top {
-          position: absolute;
-          top: -100vh;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 28px;
-          height: 100vh;
-          background: repeating-linear-gradient(
-            180deg,
-            #1f1f23 0px,
-            #1f1f23 4px,
-            #0d0d10 4px,
-            #0d0d10 8px
-          );
-          border-left: 2px solid var(--line, #15171E);
-          border-right: 2px solid var(--line, #15171E);
-          z-index: 0;
-          overflow: hidden;
-        }
-        /* Fabric weave texture — diagonal cross-hatch */
-        .lanyard-weave {
-          position: absolute;
-          inset: 0;
-          background-image:
-            repeating-linear-gradient(45deg,
-              rgba(255,255,255,0.04) 0px,
-              rgba(255,255,255,0.04) 1px,
-              transparent 1px,
-              transparent 3px),
-            repeating-linear-gradient(-45deg,
-              rgba(255,255,255,0.04) 0px,
-              rgba(255,255,255,0.04) 1px,
-              transparent 1px,
-              transparent 3px);
-          pointer-events: none;
-        }
-        /* Stitched edges — dashed thread running along each side */
-        .lanyard-stitch {
-          position: absolute;
-          top: 0;
-          width: 2px;
-          height: 100%;
-          background-image: repeating-linear-gradient(
-            180deg,
-            rgba(255,255,255,0.18) 0px,
-            rgba(255,255,255,0.18) 3px,
-            transparent 3px,
-            transparent 6px
-          );
-        }
-        .lanyard-stitch-l { left: 3px; }
-        .lanyard-stitch-r { right: 3px; }
-        /* Drape shading — darker near top of the strap */
-        .lanyard-drape {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(180deg,
-            rgba(0,0,0,0.45) 0%,
-            rgba(0,0,0,0.15) 30%,
-            rgba(0,0,0,0) 60%,
-            rgba(255,255,255,0.05) 100%);
-          pointer-events: none;
-        }
-
-        /* Metal clip — full 3D treatment */
-        .lanyard-clip {
-          width: 22px;
-          height: 30px;
-          background: linear-gradient(180deg, #e6e6e6 0%, #b8b8b8 30%, #d0d0d0 55%, #909090 100%);
-          border: 2px solid var(--line, #15171E);
-          border-radius: 4px 4px 6px 6px;
-          position: relative;
-          z-index: 2;
-          box-shadow:
-            2px 2px 0 var(--shadow, #15171E),
-            inset 1px 1px 0 rgba(255,255,255,0.6),
-            inset -1px -1px 0 rgba(0,0,0,0.35);
-        }
-        /* Top bar — visible horizontal metal bar at the top of the clip */
-        .clip-topbar {
-          position: absolute;
-          top: -3px;
-          left: -2px;
-          right: -2px;
-          height: 8px;
-          background: linear-gradient(180deg, #f0f0f0 0%, #c0c0c0 50%, #909090 100%);
-          border: 2px solid var(--line, #15171E);
-          border-radius: 3px;
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.7),
-            inset 0 -1px 0 rgba(0,0,0,0.3);
-        }
-        /* Bolt — rivet detail on the front face */
-        .clip-bolt {
-          position: absolute;
-          top: 6px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: radial-gradient(circle at 35% 35%,
-            #f5f5f5 0%, #c8c8c8 35%, #707070 80%, #404040 100%);
-          border: 1.5px solid var(--line, #15171E);
-          box-shadow:
-            inset 0 0 1px rgba(255,255,255,0.5),
-            0 1px 1px rgba(0,0,0,0.4);
-        }
-        /* Hook / catch plate that goes through the card hole */
-        .clip-hook {
-          position: absolute;
-          bottom: -6px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 14px;
-          height: 9px;
-          background: linear-gradient(180deg, #c8c8c8 0%, #888888 60%, #606060 100%);
-          border: 2px solid var(--line, #15171E);
-          border-radius: 0 0 5px 5px;
-          box-shadow:
-            inset 0 -1px 0 rgba(0,0,0,0.4),
-            0 1px 0 rgba(255,255,255,0.2);
-        }
-        /* Metallic reflection sweep — animated highlight across the clip */
-        .clip-shine {
-          position: absolute;
-          top: 0;
-          left: -50%;
-          width: 30%;
-          height: 100%;
-          background: linear-gradient(110deg,
-            transparent 0%,
-            rgba(255,255,255,0.7) 50%,
-            transparent 100%);
-          transform: skewX(-20deg);
-          animation: clip-shine-sweep 5s ease-in-out infinite;
-          pointer-events: none;
-        }
-        @keyframes clip-shine-sweep {
-          0%, 70% { left: -50%; opacity: 0; }
-          75% { opacity: 0.9; }
-          85% { left: 130%; opacity: 0.9; }
-          90%, 100% { left: 130%; opacity: 0; }
-        }
-
-        /* Card wrapper — animated by physics (translateY + rotate + rotateX) */
-        .hallpass-card-wrap {
-          transform-origin: top center;
-          transform-style: preserve-3d;
-          will-change: transform;
-          position: relative;
-          z-index: 1;
-        }
-        /* Inner 3D stage holds the card with preserve-3d so bevels/sheen
-           can sit at slightly different translateZ positions */
-        .hallpass-3d-stage {
-          transform-style: preserve-3d;
-          position: relative;
-        }
-
-        /* The card */
-        .hallpass {
-          width: 100%;
-          max-width: 360px;
-          background:
-            /* Subtle vertical gradient — top brighter, bottom slightly warmer */
-            linear-gradient(180deg,
-              rgba(255,255,255,0.18) 0%,
-              rgba(255,255,255,0) 25%,
-              rgba(0,0,0,0.04) 100%),
-            var(--yellow, #FFC93C);
-          color: var(--yellow-ink, #3D2E00);
-          border: 3px solid var(--line, #15171E);
-          border-radius: 18px;
-          box-shadow:
-            9px 9px 0 var(--shadow, #15171E),
-            inset 0 1px 0 rgba(255,255,255,0.6),
-            inset 0 -1px 0 rgba(0,0,0,0.18),
-            inset 1px 0 0 rgba(255,255,255,0.35),
-            inset -1px 0 0 rgba(0,0,0,0.15);
-          padding: 22px;
-          padding-top: 28px;
-          position: relative;
-          transform: translateZ(0);
-        }
-
-        /* Bevel — top/left edge highlight (suggests card thickness catching light) */
-        .hallpass-bevel-tl {
-          position: absolute;
-          inset: -1px;
-          border-radius: 18px;
-          border-top: 2px solid rgba(255,255,255,0.55);
-          border-left: 2px solid rgba(255,255,255,0.35);
-          border-right: 2px solid transparent;
-          border-bottom: 2px solid transparent;
-          pointer-events: none;
-          transform: translateZ(1px);
-        }
-        /* Bevel — bottom/right edge shadow (card thickness in shadow) */
-        .hallpass-bevel-br {
-          position: absolute;
-          inset: -1px;
-          border-radius: 18px;
-          border-bottom: 2px solid rgba(0,0,0,0.4);
-          border-right: 2px solid rgba(0,0,0,0.3);
-          border-top: 2px solid transparent;
-          border-left: 2px solid transparent;
-          pointer-events: none;
-          transform: translateZ(1px);
-        }
-
-        /* Glossy laminate sheen — diagonal light reflection across the card */
-        .hallpass-sheen {
-          position: absolute;
-          inset: 0;
-          border-radius: 18px;
-          background: linear-gradient(135deg,
-            rgba(255,255,255,0) 0%,
-            rgba(255,255,255,0.32) 35%,
-            rgba(255,255,255,0.05) 50%,
-            rgba(255,255,255,0.18) 65%,
-            rgba(255,255,255,0) 100%);
-          pointer-events: none;
-          mix-blend-mode: overlay;
-          transform: translateZ(2px);
-        }
-        /* Corner sheen — small bright highlight near top-right */
-        .hallpass-sheen-corner {
-          position: absolute;
-          top: 6px;
-          right: 8px;
-          width: 70px;
-          height: 50px;
-          border-radius: 50%;
-          background: radial-gradient(ellipse at 60% 40%,
-            rgba(255,255,255,0.5) 0%,
-            rgba(255,255,255,0.15) 40%,
-            rgba(255,255,255,0) 70%);
-          pointer-events: none;
-          mix-blend-mode: screen;
-          transform: translateZ(2px);
-        }
-
-        /* Hole at the top of the card — now with depth (inner shadow) */
-        .hallpass-hole {
-          position: absolute;
-          top: -8px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 30px;
-          height: 18px;
-          border: 3px solid var(--line, #15171E);
-          border-top: none;
-          border-radius: 0 0 15px 15px;
-          background: var(--bg, #FFFDF7);
-          box-shadow:
-            inset 0 3px 4px rgba(0,0,0,0.5),
-            inset 0 -1px 0 rgba(255,255,255,0.4);
-          overflow: hidden;
-        }
-        .hallpass-hole-inner {
-          position: absolute;
-          top: 2px;
-          left: 2px;
-          right: 2px;
-          bottom: 0;
-          background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 80%);
-          border-radius: 0 0 12px 12px;
-        }
-
-        .hallpass-head {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 14px;
-          position: relative;
-          transform: translateZ(3px);
-        }
-        .hallpass-tag {
-          font-family: 'IBM Plex Mono', monospace;
-          font-weight: 700;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          text-shadow: 0 1px 0 rgba(255,255,255,0.35);
-        }
-        .hallpass h3 {
-          font-size: 20px;
-          margin-bottom: 6px;
-          font-weight: 900;
-          position: relative;
-          transform: translateZ(3px);
-          text-shadow: 0 1px 0 rgba(255,255,255,0.4);
-        }
-        .hallpass p {
-          font-size: 13.5px;
-          font-weight: 600;
-          opacity: 0.85;
-          margin-bottom: 16px;
-          position: relative;
-          transform: translateZ(3px);
-          text-shadow: 0 1px 0 rgba(255,255,255,0.25);
-        }
-        .hallpass-body {
-          display: flex;
-          gap: 16px;
-          align-items: center;
-          background: rgba(255, 255, 255, 0.45);
-          border: 2px solid var(--line, #15171E);
-          border-radius: 10px;
-          padding: 14px;
-          position: relative;
-          transform: translateZ(2px);
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.5),
-            inset 0 -1px 0 rgba(0,0,0,0.12);
-        }
-        .qr {
-          width: 66px;
-          height: 66px;
-          position: relative;
-          background: #fff;
-          border: 2px solid var(--line, #15171E);
-          border-radius: 4px;
-          flex-shrink: 0;
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.8),
-            0 1px 0 rgba(0,0,0,0.15);
-        }
-        /* QR sheen — subtle gloss on the QR code itself */
-        .qr-sheen {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg,
-            rgba(255,255,255,0.4) 0%,
-            rgba(255,255,255,0) 40%,
-            rgba(255,255,255,0.15) 60%,
-            rgba(255,255,255,0) 100%);
-          pointer-events: none;
-          z-index: 5;
-        }
-        .qr-eye {
-          position: absolute;
-          width: 16px;
-          height: 16px;
-          border: 3.5px solid var(--line, #15171E);
-        }
-        .qr-eye::after {
-          content: "";
-          position: absolute;
-          inset: 3.5px;
-          background: var(--line, #15171E);
-        }
-        .qr-eye.tl { top: 4px; left: 4px; }
-        .qr-eye.tr { top: 4px; right: 4px; }
-        .qr-eye.bl { bottom: 4px; left: 4px; }
-        .qr i {
-          position: absolute;
-          width: 4px;
-          height: 4px;
-          background: var(--line, #15171E);
-          display: block;
-        }
-        .hallpass-code {
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 12px;
-          line-height: 1.7;
-          text-shadow: 0 1px 0 rgba(255,255,255,0.4);
-        }
-        .hallpass-code b {
-          display: block;
-          font-size: 13px;
-        }
-        .hallpass-list {
-          list-style: none;
-          margin: 14px 0 0;
-          padding: 0;
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-          position: relative;
-          transform: translateZ(3px);
-          text-shadow: 0 1px 0 rgba(255,255,255,0.3);
-        }
-        .hallpass-list li::before {
-          content: "— ";
-          font-weight: 700;
-        }
-
-        /* Watermark — embossed seal in bottom-right corner */
-        .hallpass-watermark {
-          position: absolute;
-          bottom: 14px;
-          right: 18px;
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 9px;
-          font-weight: 900;
-          letter-spacing: 0.18em;
-          color: rgba(61, 46, 0, 0.18);
-          text-shadow:
-            0 1px 0 rgba(255,255,255,0.4),
-            0 -1px 0 rgba(0,0,0,0.05);
-          pointer-events: none;
-          transform: translateZ(1px) rotate(-6deg);
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .hallpass-card-wrap {
-            transform: none !important;
-          }
-          .clip-shine {
-            animation: none;
-            opacity: 0;
-          }
-        }
-      `}</style>
+      <p className="hp-hint" ref={hintRef}>
+        drag it · fling it · tap to flip
+      </p>
     </div>
   );
 }

@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hall Pass — Staff Invite</title>
+
+<!--
+  ============================================================================
+  HALL PASS — 3D LANYARD CARD (single file, zero dependencies)
+  ============================================================================
+  WHAT IT DOES
+    • On page load the card DROPS from the top, the strap snaps taut and it swings.
+    • Real 2D verlet physics (rope + rigid card) with a 3D layer on top
+      (yaw / pitch / thickness / glare), rendered with CSS 3D transforms.
+    • Mouse / touch:  drag it, fling it, brush past it to nudge it,
+      hover to tilt it toward the cursor, click/tap (no drag) to flip it.
+
+  HOW TO INTEGRATE (notes for the coding agent)
+    1. Everything lives in three blocks: <style>, the #hpStage markup, and the
+       <script>. Copy them into the register/invite page as-is.
+    2. The stage fills its parent. Give #hpStage a height (default: fills the
+       viewport minus the demo header). The strap enters from the TOP EDGE of the
+       stage, so place the stage directly under your site header.
+    3. Edit the CONFIG object at the top of the <script> — or call
+         HallPass.configure({ number:'0043', path:'/register/teacher', token:'A1B-22C' })
+       at runtime, e.g. from server-rendered invite data.
+    4. THE QR CODE IS A PLACEHOLDER (not scannable). Replace it with a real one:
+         HallPass.setQR('<svg …>…</svg>')   // SVG markup string
+         HallPass.setQR('https://…/qr.png') // image URL / data: URI
+         HallPass.setQR(domElement)         // any element (canvas, img, svg)
+       Generate the QR from the full invite URL (path + ?token=…), e.g. with the
+       `qrcode` npm package on the server or client.
+    5. Other API:  HallPass.drop()  → replay the fall,  HallPass.flip() → flip card.
+    6. Colors / fonts are CSS variables in :root (--hp-*). The card scales with
+       the stage; all inner sizes are in `em` so nothing else needs touching.
+    7. Respects prefers-reduced-motion (card starts hanging, no drop).
+    8. Remove the elements marked DEMO ONLY when embedding.
+  ============================================================================
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --hp-bg:#0a1020;            /* page / notch colour */
+    --hp-card:#ffd45c;          /* card yellow */
+    --hp-card-hi:#ffe388;
+    --hp-card-lo:#f7b93a;
+    --hp-ink:#231a05;           /* text on card */
+    --hp-plate:#050608;         /* hard offset shadow */
+    --hp-strap:#141417;
+    --hp-accent:#1fd68f;        /* “valid” dot */
+    --hp-sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --hp-mono:"Space Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--hp-bg)}
+  body{min-height:100svh;display:flex;flex-direction:column;font-family:var(--hp-sans);color:#fff}
+
+  /* ------------------------------------------------------------ DEMO ONLY */
+  .demo-header{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    padding:0 28px;background:#0d0d10;border-bottom:2px solid #fff;position:relative;z-index:5}
+  .demo-header b{font-weight:800;letter-spacing:-.02em;font-size:20px}
+  .demo-btn{background:#27e3a0;color:#04231a;font-weight:800;padding:10px 20px;border-radius:10px;text-decoration:none;font-size:15px}
+  /* ---------------------------------------------------------- /DEMO ONLY */
+
+  /* ---------------------------------------------------------------- stage */
+  .hp-stage{
+    position:relative;flex:1;min-height:520px;width:100%;overflow:hidden;
+    background:
+      radial-gradient(60% 50% at 50% 38%, rgba(255,212,92,.10), transparent 70%),
+      radial-gradient(rgba(255,255,255,.055) 1px, transparent 1.4px) 0 0/22px 22px,
+      var(--hp-bg);
+  }
+  .hp-strap{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1}
+  .hp-strap path{fill:none;stroke-linejoin:round;stroke-linecap:butt}
+  .hp-strap .s-edge{stroke:#ece8dc;stroke-width:calc(var(--sw) + 4px)}
+  .hp-strap .s-body{stroke:var(--hp-strap);stroke-width:var(--sw)}
+  .hp-strap .s-rib {stroke:#2b2b32;stroke-width:calc(var(--sw) - 3px);stroke-dasharray:2 5}
+
+  /* ----------------------------------------------------------------- card */
+  .hp-card{
+    position:absolute;left:0;top:0;z-index:2;
+    width:var(--w);height:var(--h);
+    font-size:calc(var(--w) / 24);        /* 1em = 1/24 of card width */
+    transform-origin:0 0;transform-style:preserve-3d;will-change:transform;
+    touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;
+    opacity:0;
+  }
+  .hp-ready .hp-card{opacity:1;transition:opacity .18s ease-out}
+  .hp-stage.is-grabbed .hp-card{cursor:grabbing}
+
+  .hp-plate,.hp-core,.hp-face{position:absolute;inset:0;border-radius:1.15em}
+  .hp-plate{background:var(--hp-plate);backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:translate3d(.6em,.6em,-3px)}   /* hard offset shadow (front) */
+  .hp-plate.back{transform:rotateY(180deg) translate3d(-.6em,.6em,-3px)}                                                            /* …and seen from the back */
+  .hp-core{background:#c98a17}                                                        /* card thickness */
+  .hp-face{
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;
+    display:flex;flex-direction:column;padding:2.5em 1.7em 1.25em;color:var(--hp-ink);
+    box-shadow:inset 0 0 0 .14em #fff7df;
+  }
+  .hp-front{
+    transform:translateZ(2px);
+    background:
+      radial-gradient(120% 70% at 15% 0%, var(--hp-card-hi) 0%, transparent 60%),
+      linear-gradient(165deg, var(--hp-card), var(--hp-card-lo));
+  }
+  .hp-back{
+    transform:rotateY(180deg) translateZ(2px);
+    background:
+      repeating-linear-gradient(-32deg, rgba(255,212,92,.06) 0 .12em, transparent .12em 1.1em),
+      #17171c;
+    color:#ffe6a0;
+  }
+  .hp-notch{
+    position:absolute;left:50%;top:0;width:2.5em;height:2.5em;margin:-1.25em 0 0 -1.25em;border-radius:50%;
+    background:var(--hp-bg);box-shadow:0 0 0 .16em #fff7df;
+  }
+
+  /* front content */
+  .hp-row{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--hp-mono);font-weight:700;font-size:.74em;letter-spacing:.05em;text-transform:uppercase}
+  .hp-title{margin:.45em 0 .15em;font-size:2.35em;line-height:1;font-weight:800;letter-spacing:-.03em}
+  .hp-sub{margin:0;font-size:.94em;line-height:1.28;font-weight:500;max-width:21em}
+  .hp-scan{display:flex;align-items:center;gap:1em;margin-top:.95em;padding:.8em;border-radius:1em;
+    background:rgba(255,255,255,.42);border:.1em solid rgba(255,255,255,.75)}
+  .hp-qr{flex:none;width:6em;height:6em;padding:.4em;border-radius:.55em;background:#fff;color:#111;display:grid;place-items:center;overflow:hidden}
+  .hp-qr>*{width:100%;height:100%;display:block}
+  .hp-meta{display:flex;flex-direction:column;gap:.35em;font-family:var(--hp-mono);min-width:0}
+  .hp-path{font-weight:700;font-size:1.02em;overflow-wrap:anywhere}
+  .hp-token{font-size:.84em}
+  .hp-token b{font-weight:700;background:rgba(35,26,5,.1);padding:.05em .3em;border-radius:.3em}
+  .hp-once{font-size:.78em;opacity:.75;display:flex;align-items:center;gap:.5em}
+  .hp-once i{width:.62em;height:.62em;border-radius:50%;background:#12a56d;box-shadow:0 0 0 .18em rgba(18,165,109,.25);animation:hp-pulse 2.2s ease-in-out infinite}
+  @keyframes hp-pulse{50%{box-shadow:0 0 0 .38em rgba(18,165,109,0)}}
+  .hp-list{list-style:none;margin:.95em 0 0;padding:0;display:grid;gap:.42em;font-family:var(--hp-mono);font-size:.82em}
+  .hp-list li::before{content:"—";font-weight:700;margin-right:.65em}
+  .hp-foot{margin-top:auto;padding-top:.7em;border-top:.13em dashed rgba(35,26,5,.45);display:flex;justify-content:space-between;align-items:flex-end;gap:1em;font-family:var(--hp-mono);font-size:.62em;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .hp-bars{height:1.9em;flex:1;max-width:11em;
+    background:repeating-linear-gradient(90deg,#231a05 0 .14em,transparent .14em .32em,#231a05 .32em .6em,transparent .6em .74em,#231a05 .74em .82em,transparent .82em 1.12em)}
+  /* shimmer that follows the card angle / cursor */
+  .hp-sheen{position:absolute;inset:0;pointer-events:none;mix-blend-mode:soft-light;
+    background:
+      radial-gradient(circle at var(--gx,50%) var(--gy,20%), rgba(255,255,255,.9), transparent 45%),
+      linear-gradient(105deg, transparent calc(var(--sheen,50%) - 18%), rgba(255,255,255,.75) var(--sheen,50%), transparent calc(var(--sheen,50%) + 18%));
+    opacity:.55}
+
+  /* back content */
+  .hp-stripe{margin:.4em -1.7em 0;height:3.1em;background:#050506}
+  .hp-back h3{margin:1.3em 0 .25em;font-size:1.55em;font-weight:800;letter-spacing:-.02em;color:var(--hp-card)}
+  .hp-back p{margin:0;font-size:.9em;line-height:1.35;max-width:20em;opacity:.85}
+  .hp-back .hp-foot{border-top-color:rgba(255,230,160,.4);color:#ffe6a0}
+  .hp-back .hp-bars{background:repeating-linear-gradient(90deg,#ffe6a0 0 .14em,transparent .14em .32em,#ffe6a0 .32em .6em,transparent .6em .74em,#ffe6a0 .74em .82em,transparent .82em 1.12em)}
+  .hp-sign{margin-top:1.1em;height:3.4em;border-radius:.5em;background:#f5efdc;color:#8a7a52;font-family:var(--hp-mono);font-size:.72em;display:flex;align-items:center;padding:0 1em}
+
+  /* metal clip */
+  .hp-clip{position:absolute;left:0;top:0;z-index:3;pointer-events:none;transform-origin:0 0;--cw:calc(var(--w)*.085);--ch:calc(var(--w)*.125)}
+  .hp-clip-body{position:absolute;left:calc(var(--cw) / -2);top:calc(var(--ch) * -.3);width:var(--cw);height:var(--ch);
+    border-radius:.45em .45em .8em .8em;border:2px solid #fff;
+    background:linear-gradient(90deg,#8d939d,#e4e7ec 45%,#a6acb6);
+    box-shadow:0 3px 6px rgba(0,0,0,.45), inset 0 -6px 8px rgba(0,0,0,.18)}
+  .hp-clip-body::after{content:"";position:absolute;left:50%;top:44%;width:34%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;
+    background:#3a3d44;box-shadow:inset 0 2px 3px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.6)}
+
+  .hp-hint{position:absolute;left:0;right:0;bottom:18px;margin:0;text-align:center;z-index:2;
+    font:400 13px/1 var(--hp-mono);color:rgba(255,255,255,.5);transition:opacity .6s;pointer-events:none}
+  .hp-stage.has-touched .hp-hint{opacity:0}
+
+  @media (prefers-reduced-motion:reduce){ .hp-once i{animation:none} }
+</style>
+</head>
+<body>
+
+<!-- DEMO ONLY: replace with your real site header -->
+<header class="demo-header"><b>schoolhub</b><a class="demo-btn" href="#">Sign in</a></header>
+
+<!-- =========================== COMPONENT START =========================== -->
+<section class="hp-stage" id="hpStage" aria-label="Staff invite hall pass">
+
+  <svg class="hp-strap" aria-hidden="true">
+    <path class="s-edge" id="sEdge"/><path class="s-body" id="sBody"/><path class="s-rib" id="sRib"/>
+  </svg>
+
+  <div class="hp-card" id="hpCard" role="img" aria-label="Staff invite hall pass. Drag to move, tap to flip.">
+    <div class="hp-plate"></div><div class="hp-plate back"></div>
+    <div class="hp-core" style="transform:translateZ(-1.5px)"></div>
+    <div class="hp-core" style="transform:translateZ(0)"></div>
+    <div class="hp-core" style="transform:translateZ(1.5px)"></div>
+
+    <!-- FRONT -->
+    <div class="hp-face hp-front">
+      <i class="hp-notch"></i>
+      <div class="hp-row"><span id="hpEyebrow">Staff invite</span><span>No. <span id="hpNumber">0042</span></span></div>
+      <h2 class="hp-title" id="hpTitle">Hall Pass</h2>
+      <p class="hp-sub" id="hpSub">Scan to join — role and school are filled in for you.</p>
+      <div class="hp-scan">
+        <div class="hp-qr" id="hpQR"></div>
+        <div class="hp-meta">
+          <span class="hp-path" id="hpPath">/register/teacher</span>
+          <span class="hp-token">?token=<b id="hpToken">7F3-91C</b></span>
+          <span class="hp-once"><i></i><span id="hpUsage">one-time use</span></span>
+        </div>
+      </div>
+      <ul class="hp-list" id="hpPerks"></ul>
+      <div class="hp-foot"><span id="hpSchoolFront">Your school</span><span class="hp-bars"></span></div>
+      <div class="hp-sheen"></div>
+    </div>
+
+    <!-- BACK -->
+    <div class="hp-face hp-back">
+      <i class="hp-notch"></i>
+      <div class="hp-stripe"></div>
+      <h3 id="hpSchoolBack">Your school</h3>
+      <p>This pass is issued to one person and works once. If you didn’t expect it, don’t scan it — tell the front office.</p>
+      <div class="hp-sign">signed at first scan</div>
+      <div class="hp-foot"><span>Non-transferable</span><span class="hp-bars"></span></div>
+      <div class="hp-sheen"></div>
+    </div>
+  </div>
+
+  <div class="hp-clip" id="hpClip"><div class="hp-clip-body"></div></div>
+
+  <p class="hp-hint">drag it · fling it · tap to flip</p>
+</section>
+<!-- ============================ COMPONENT END ============================ -->
+
+<script>
+(() => {
+'use strict';
+
+/* =========================================================================
+   CONFIG — edit here (or call HallPass.configure({...}) at runtime)
+   ========================================================================= */
+const CONFIG = {
+  eyebrow : 'Staff invite',
+  number  : '0042',
+  title   : 'Hall Pass',
+  subtitle: 'Scan to join — role and school are filled in for you.',
+  path    : '/register/teacher',
+  token   : '7F3-91C',
+  usage   : 'one-time use',
+  perks   : ['Role auto-assigned', 'School auto-linked', 'Expires after first scan'],
+  school  : 'Your school',
+  qr      : null            // SVG string | image URL | DOM element. null = placeholder pattern
+};
+
+/* SIM:START ============================================================
+   Physics. DOM-free on purpose so it can be unit-tested / reused.
+   Coordinates are px, origin = top-left of the stage.
+   ======================================================================= */
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const DT = 1 / 120;
+
+function createSim(o) {
+  const { ax, ay, W, H, L, gap, width, height, drop } = o;
+  const G = 4200, DAMP = 0.9965, ITERS = 10, N = 9, seg = L / N;
+
+  const pts = [];
+  const mk = (x, y, im) => { const p = { x, y, px: x, py: y, im }; pts.push(p); return p; };
+
+  /* --- initial pose --------------------------------------------------- */
+  const th0   = drop ? 0.32 : 0;
+  const cx0   = drop ? ax + Math.min(46, L * 0.15) : ax;
+  const cy0   = drop ? ay - L * 0.92 : ay + L;      // dropping: rope folded up, card above → falls
+  const anchor = mk(ax, ay, 0);
+  const rope = [anchor];
+  for (let i = 1; i < N; i++) {
+    const t = i / N;
+    rope.push(mk(ax + (cx0 - ax) * t, ay + (cy0 - ay) * t, 2.2));      // light rope points
+  }
+  const clip = mk(cx0, cy0, 1); rope.push(clip);
+
+  const cs = Math.cos(th0), sn = Math.sin(th0);
+  const place = (lx, ly) => mk(cx0 + lx * cs - ly * sn, cy0 + lx * sn + ly * cs, 1);
+  const TL = place(-W / 2, gap), TR = place(W / 2, gap), BR = place(W / 2, gap + H), BL = place(-W / 2, gap + H);
+  const cardPts = [clip, TL, TR, BR, BL];
+  const local = [[0, 0], [-W / 2, gap], [W / 2, gap], [W / 2, gap + H], [-W / 2, gap + H]];
+
+  /* --- constraints ---------------------------------------------------- */
+  const cons = [];
+  for (let i = 0; i < N; i++) cons.push({ a: rope[i], b: rope[i + 1], rest: seg, max: true });        // rope: can go slack, can’t stretch
+  for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) {                                      // card: rigid
+    cons.push({ a: cardPts[i], b: cardPts[j], rest: Math.hypot(local[i][0] - local[j][0], local[i][1] - local[j][1]), max: false });
+  }
+
+  if (drop) for (const p of pts) if (p.im) p.py = p.y - 700 * DT;    // initial downward speed
+
+  const sim = {
+    pts, rope, clip, TL, TR, BR, BL, W, H,
+    drag: null,
+    flipped: false,
+    yaw: 0, yawV: 0, pitch: 0, pitchV: 0,
+    hoverYaw: 0, hoverPitch: 0,
+    gx: 0.5, gy: 0.2,
+    time: 0,
+
+    step() {
+      const g2 = G * DT * DT;
+      for (const p of pts) if (p.im) {
+        const vx = (p.x - p.px) * DAMP, vy = (p.y - p.py) * DAMP;
+        p.px = p.x; p.py = p.y; p.x += vx; p.y += vy + g2;
+      }
+      if (this.drag) this._applyDrag();
+      for (let it = 0; it < ITERS; it++) for (const c of cons) {
+        const a = c.a, b = c.b;
+        let dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.hypot(dx, dy) || 1e-6;
+        if (c.max && d <= c.rest) continue;
+        const w = a.im + b.im; if (!w) continue;
+        const diff = (d - c.rest) / d;
+        a.x += dx * diff * (a.im / w); a.y += dy * diff * (a.im / w);
+        b.x -= dx * diff * (b.im / w); b.y -= dy * diff * (b.im / w);
+      }
+      const pad = 4;
+      for (const p of pts) if (p.im) {
+        if (p.x < pad) p.x = pad; else if (p.x > width - pad) p.x = width - pad;
+        if (p.y > height - pad) { p.y = height - pad; p.py = p.y + (p.py - p.y) * 0.2; }
+      }
+
+      /* --- 3D: yaw / pitch as damped springs driven by the card’s motion --- */
+      let vx = 0, vy = 0;
+      for (const p of [TL, TR, BR, BL]) { vx += p.x - p.px; vy += p.y - p.py; }
+      vx = vx / 4 / DT; vy = vy / 4 / DT;
+      const base = this.flipped ? Math.PI : 0;
+      const k = Math.round((this.yaw - base) / TAU);
+      const yTarget = base + k * TAU + this.hoverYaw;
+      const yAcc = -46 * (this.yaw - yTarget) - 6.2 * this.yawV + clamp(0.045 * vx, -40, 40);
+      this.yawV = clamp(this.yawV + yAcc * DT, -32, 32); this.yaw += this.yawV * DT;
+
+      const pTarget = this.hoverPitch + clamp(-vy * 0.00025, -0.35, 0.35);
+      const pAcc = -60 * (this.pitch - pTarget) - 9 * this.pitchV;
+      this.pitchV += pAcc * DT; this.pitch += this.pitchV * DT;
+      this.time += DT;
+    },
+
+    _applyDrag() {
+      const d = this.drag, P = [TL, TR, BR, BL];
+      const w = [(1 - d.u) * (1 - d.v), d.u * (1 - d.v), d.u * d.v, (1 - d.u) * d.v];
+      let gx = 0, gy = 0, s = 0;
+      for (let i = 0; i < 4; i++) { gx += w[i] * P[i].x; gy += w[i] * P[i].y; s += w[i] * w[i]; }
+      const k = 0.5, ex = (d.tx - gx) * k, ey = (d.ty - gy) * k;
+      for (let i = 0; i < 4; i++) { P[i].x += (w[i] / s) * ex; P[i].y += (w[i] / s) * ey; }
+    },
+
+    /* world point → card-local (0..1, 0..1) */
+    toUV(x, y) {
+      const ex = TR.x - TL.x, ey = TR.y - TL.y, fx = BL.x - TL.x, fy = BL.y - TL.y;
+      const px = x - TL.x, py = y - TL.y;
+      return { u: (px * ex + py * ey) / (W * W), v: (px * fx + py * fy) / (H * H) };
+    },
+    angle() { return Math.atan2(TR.y - TL.y, TR.x - TL.x); },
+
+    nudge(vx, vy) {
+      const f = DT * 0.02;
+      for (const p of [TL, TR, BR, BL, clip]) { p.px -= vx * f; p.py -= vy * f; }
+      this.yawV += clamp(vx * 0.0012, -6, 6);
+    },
+    flip() { this.flipped = !this.flipped; this.yawV += this.flipped ? 7 : -7; },
+    settle(seconds) { for (let i = 0; i < seconds / DT; i++) this.step(); }
+  };
+  return sim;
+}
+/* SIM:END ================================================================ */
+
+/* =========================================================================
+   DOM / rendering
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+const stage = $('hpStage'), card = $('hpCard'), clipEl = $('hpClip');
+const sEdge = $('sEdge'), sBody = $('sBody'), sRib = $('sRib');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let sim = null, sw = 0, sh = 0, W = 0, H = 0, ax = 0, ay = 0;
+let first = true;
+
+function layout(drop) {
+  const r = stage.getBoundingClientRect();
+  sw = r.width; sh = r.height;
+  const L = clamp(sh * 0.28, 110, 300);
+  ay = -24; ax = sw / 2;
+  W = clamp(Math.min(sw * 0.86, 360, (sh - L - 60) / 1.14), 200, 360);
+  H = W * 1.14;
+  const gap = W * 0.045;
+  stage.style.setProperty('--w', W + 'px');
+  stage.style.setProperty('--h', H + 'px');
+  stage.style.setProperty('--sw', Math.round(W * 0.085) + 'px');
+  stage.classList.remove('hp-ready');
+  sim = createSim({ ax, ay, W, H, L, gap, width: sw, height: sh, drop });
+  if (!drop) sim.settle(5);
+  render();
+  requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.add('hp-ready')));
+}
+
+function strapPath(rope) {
+  const p = rope;
+  let d = `M${p[0].x.toFixed(1)},${(p[0].y - 120).toFixed(1)} L${p[0].x.toFixed(1)},${p[0].y.toFixed(1)}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[i - 1] || p[i], p1 = p[i], p2 = p[i + 1], p3 = p[i + 2] || p2;
+    d += ` C${(p1.x + (p2.x - p0.x) / 6).toFixed(1)},${(p1.y + (p2.y - p0.y) / 6).toFixed(1)} ` +
+         `${(p2.x - (p3.x - p1.x) / 6).toFixed(1)},${(p2.y - (p3.y - p1.y) / 6).toFixed(1)} ` +
+         `${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
+function render() {
+  const a = sim.angle(), tl = sim.TL;
+  card.style.transform =
+    `translate3d(${tl.x.toFixed(2)}px,${tl.y.toFixed(2)}px,0) rotate(${a.toFixed(4)}rad) ` +
+    `translate(${W / 2}px,${H / 2}px) perspective(1100px) rotateX(${sim.pitch.toFixed(4)}rad) rotateY(${sim.yaw.toFixed(4)}rad) ` +
+    `translate(${-W / 2}px,${-H / 2}px)`;
+  clipEl.style.transform = `translate(${sim.clip.x.toFixed(2)}px,${sim.clip.y.toFixed(2)}px) rotate(${a.toFixed(4)}rad)`;
+  const d = strapPath(sim.rope);
+  sEdge.setAttribute('d', d); sBody.setAttribute('d', d); sRib.setAttribute('d', d);
+  // shimmer follows the tilt
+  const s = 50 + Math.sin(sim.yaw) * 60 + a * 30;
+  card.style.setProperty('--sheen', clamp(s, -20, 120).toFixed(1) + '%');
+  card.style.setProperty('--gx', (sim.gx * 100).toFixed(1) + '%');
+  card.style.setProperty('--gy', (sim.gy * 100).toFixed(1) + '%');
+}
+
+/* ---- fixed-timestep loop ---- */
+let last = performance.now(), acc = 0;
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (t - last) / 1000); last = t; acc += dt;
+  while (acc >= DT) { sim.step(); acc -= DT; }
+  render();
+}
+
+/* ---- pointer interaction ---- */
+let down = null, prev = null;
+const local = e => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+
+card.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  try { card.setPointerCapture(e.pointerId); } catch (_) {}
+  const p = local(e), uv = sim.toUV(p.x, p.y);
+  sim.drag = { u: clamp(uv.u, 0, 1), v: clamp(uv.v, 0, 1), tx: p.x, ty: p.y };
+  sim.hoverYaw = sim.hoverPitch = 0;
+  down = { x: p.x, y: p.y, t: performance.now(), moved: false };
+  stage.classList.add('is-grabbed', 'has-touched');
+});
+
+window.addEventListener('pointermove', e => {
+  const p = local(e), now = performance.now();
+  if (sim.drag) {
+    sim.drag.tx = clamp(p.x, 0, sw); sim.drag.ty = clamp(p.y, 0, sh);
+    if (down && Math.hypot(p.x - down.x, p.y - down.y) > 6) down.moved = true;
+  } else if (e.pointerType === 'mouse') {
+    const uv = sim.toUV(p.x, p.y);
+    const inside = uv.u >= 0 && uv.u <= 1 && uv.v >= 0 && uv.v <= 1;
+    if (inside) {
+      sim.hoverYaw = (uv.u - 0.5) * 0.55; sim.hoverPitch = -(uv.v - 0.5) * 0.4;
+      sim.gx = uv.u; sim.gy = uv.v;
+      if (prev) {
+        const dtm = Math.max(1, now - prev.t);
+        const vx = clamp((p.x - prev.x) / dtm * 1000, -2500, 2500), vy = clamp((p.y - prev.y) / dtm * 1000, -2500, 2500);
+        sim.nudge(vx, vy);
+      }
+    } else { sim.hoverYaw = sim.hoverPitch = 0; }
+  }
+  prev = { x: p.x, y: p.y, t: now };
+});
+
+function release() {
+  if (!sim.drag) return;
+  sim.drag = null; stage.classList.remove('is-grabbed');
+  if (down && !down.moved && performance.now() - down.t < 350) sim.flip();
+  down = null;
+}
+window.addEventListener('pointerup', release);
+window.addEventListener('pointercancel', release);
+stage.addEventListener('pointerleave', () => { if (!sim.drag) sim.hoverYaw = sim.hoverPitch = 0; });
+
+/* ---- content + QR ---- */
+function placeholderQR(seed) {
+  const n = 25;
+  let h = 2166136261 >>> 0;
+  for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  const rnd = () => { h = (h + 0x6D2B79F5) >>> 0; let t = Math.imul(h ^ (h >>> 15), 1 | h); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const finder = (i, j) => (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4));
+  let rects = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    let on;
+    const inTL = r < 8 && c < 8, inTR = r < 8 && c >= n - 8, inBL = r >= n - 8 && c < 8;
+    if (inTL || inTR || inBL) {
+      const i = inBL ? r - (n - 8) : r, j = inTR ? c - (n - 8) : c;
+      on = i < 7 && j < 7 && finder(i, j);
+    } else on = rnd() > 0.52;
+    if (on) rects += `<rect x="${c}" y="${r}" width="1.02" height="1.02"/>`;
+  }
+  return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" fill="currentColor" role="img" aria-label="QR code placeholder">${rects}</svg>`;
+}
+
+function setQR(src) {
+  const box = $('hpQR'); box.textContent = '';
+  if (src instanceof Element) box.appendChild(src);
+  else if (typeof src === 'string' && src.trim().startsWith('<svg')) box.innerHTML = src;
+  else if (typeof src === 'string' && src) { const img = new Image(); img.src = src; img.alt = 'QR code'; box.appendChild(img); }
+  else box.innerHTML = placeholderQR(CONFIG.path + CONFIG.token);
+}
+
+function renderContent() {
+  $('hpEyebrow').textContent = CONFIG.eyebrow;
+  $('hpNumber').textContent = CONFIG.number;
+  $('hpTitle').textContent = CONFIG.title;
+  $('hpSub').textContent = CONFIG.subtitle;
+  $('hpPath').textContent = CONFIG.path;
+  $('hpToken').textContent = CONFIG.token;
+  $('hpUsage').textContent = CONFIG.usage;
+  $('hpSchoolFront').textContent = CONFIG.school;
+  $('hpSchoolBack').textContent = CONFIG.school;
+  const ul = $('hpPerks'); ul.textContent = '';
+  CONFIG.perks.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+  setQR(CONFIG.qr);
+}
+
+/* ---- public API ---- */
+window.HallPass = {
+  configure(patch) { Object.assign(CONFIG, patch || {}); renderContent(); },
+  setQR(src) { CONFIG.qr = src; setQR(src); },
+  drop() { layout(!reduceMotion); },
+  flip() { sim.flip(); }
+};
+
+/* ---- boot ---- */
+renderContent();
+layout(!reduceMotion);
+requestAnimationFrame(frame);
+
+let rt;
+new ResizeObserver(() => {
+  clearTimeout(rt);
+  rt = setTimeout(() => {
+    const r = stage.getBoundingClientRect();
+    if (Math.abs(r.width - sw) > 1 || Math.abs(r.height - sh) > 1) layout(false);   // re-layout hanging (no re-drop)
+  }, 150);
+}).observe(stage);
+
+/* Ensure fonts have loaded before first paint feels final (no layout impact — sizes are em-based). */
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {});
+})();
+</script>
+</body>
+</html>

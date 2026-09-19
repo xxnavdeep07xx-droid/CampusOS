@@ -1,0 +1,550 @@
+     1→     1→<!DOCTYPE html>
+     2→     2→<html lang="en">
+     3→     3→<head>
+     4→     4→<meta charset="utf-8">
+     5→     5→<meta name="viewport" content="width=device-width, initial-scale=1">
+     6→     6→<title>Hall Pass — Staff Invite</title>
+     7→     7→
+     8→     8→<!--
+     9→     9→  ============================================================================
+    10→    10→  HALL PASS — 3D LANYARD CARD (single file, zero dependencies)
+    11→    11→  ============================================================================
+    12→    12→  WHAT IT DOES
+    13→    13→    • On page load the card DROPS from the top, the strap snaps taut and it swings.
+    14→    14→    • Real 2D verlet physics (rope + rigid card) with a 3D layer on top
+    15→    15→      (yaw / pitch / thickness / glare), rendered with CSS 3D transforms.
+    16→    16→    • Mouse / touch:  drag it, fling it, brush past it to nudge it,
+    17→    17→      hover to tilt it toward the cursor, click/tap (no drag) to flip it.
+    18→    18→
+    19→    19→  HOW TO INTEGRATE (notes for the coding agent)
+    20→    20→    1. Everything lives in three blocks: <style>, the #hpStage markup, and the
+    21→    21→       <script>. Copy them into the register/invite page as-is.
+    22→    22→    2. The stage fills its parent. Give #hpStage a height (default: fills the
+    23→    23→       viewport minus the demo header). The strap enters from the TOP EDGE of the
+    24→    24→       stage, so place the stage directly under your site header.
+    25→    25→    3. Edit the CONFIG object at the top of the <script> — or call
+    26→    26→         HallPass.configure({ number:'0043', path:'/register/teacher', token:'A1B-22C' })
+    27→    27→       at runtime, e.g. from server-rendered invite data.
+    28→    28→    4. THE QR CODE IS A PLACEHOLDER (not scannable). Replace it with a real one:
+    29→    29→         HallPass.setQR('<svg …>…</svg>')   // SVG markup string
+    30→    30→         HallPass.setQR('https://…/qr.png') // image URL / data: URI
+    31→    31→         HallPass.setQR(domElement)         // any element (canvas, img, svg)
+    32→    32→       Generate the QR from the full invite URL (path + ?token=…), e.g. with the
+    33→    33→       `qrcode` npm package on the server or client.
+    34→    34→    5. Other API:  HallPass.drop()  → replay the fall,  HallPass.flip() → flip card.
+    35→    35→    6. Colors / fonts are CSS variables in :root (--hp-*). The card scales with
+    36→    36→       the stage; all inner sizes are in `em` so nothing else needs touching.
+    37→    37→    7. Respects prefers-reduced-motion (card starts hanging, no drop).
+    38→    38→    8. Remove the elements marked DEMO ONLY when embedding.
+    39→    39→  ============================================================================
+    40→    40→-->
+    41→    41→
+    42→    42→<link rel="preconnect" href="https://fonts.googleapis.com">
+    43→    43→<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    44→    44→<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    45→    45→
+    46→    46→<style>
+    47→    47→  :root{
+    48→    48→    --hp-bg:#0a1020;            /* page / notch colour */
+    49→    49→    --hp-card:#ffd45c;          /* card yellow */
+    50→    50→    --hp-card-hi:#ffe388;
+    51→    51→    --hp-card-lo:#f7b93a;
+    52→    52→    --hp-ink:#231a05;           /* text on card */
+    53→    53→    --hp-plate:#050608;         /* hard offset shadow */
+    54→    54→    --hp-strap:#141417;
+    55→    55→    --hp-accent:#1fd68f;        /* “valid” dot */
+    56→    56→    --hp-sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+    57→    57→    --hp-mono:"Space Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    58→    58→  }
+    59→    59→  *{box-sizing:border-box}
+    60→    60→  html,body{margin:0;background:var(--hp-bg)}
+    61→    61→  body{min-height:100svh;display:flex;flex-direction:column;font-family:var(--hp-sans);color:#fff}
+    62→    62→
+    63→    63→  /* ------------------------------------------------------------ DEMO ONLY */
+    64→    64→  .demo-header{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    65→    65→    padding:0 28px;background:#0d0d10;border-bottom:2px solid #fff;position:relative;z-index:5}
+    66→    66→  .demo-header b{font-weight:800;letter-spacing:-.02em;font-size:20px}
+    67→    67→  .demo-btn{background:#27e3a0;color:#04231a;font-weight:800;padding:10px 20px;border-radius:10px;text-decoration:none;font-size:15px}
+    68→    68→  /* ---------------------------------------------------------- /DEMO ONLY */
+    69→    69→
+    70→    70→  /* ---------------------------------------------------------------- stage */
+    71→    71→  .hp-stage{
+    72→    72→    position:relative;flex:1;min-height:520px;width:100%;overflow:hidden;
+    73→    73→    background:
+    74→    74→      radial-gradient(60% 50% at 50% 38%, rgba(255,212,92,.10), transparent 70%),
+    75→    75→      radial-gradient(rgba(255,255,255,.055) 1px, transparent 1.4px) 0 0/22px 22px,
+    76→    76→      var(--hp-bg);
+    77→    77→  }
+    78→    78→  .hp-strap{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1}
+    79→    79→  .hp-strap path{fill:none;stroke-linejoin:round;stroke-linecap:butt}
+    80→    80→  .hp-strap .s-edge{stroke:#ece8dc;stroke-width:calc(var(--sw) + 4px)}
+    81→    81→  .hp-strap .s-body{stroke:var(--hp-strap);stroke-width:var(--sw)}
+    82→    82→  .hp-strap .s-rib {stroke:#2b2b32;stroke-width:calc(var(--sw) - 3px);stroke-dasharray:2 5}
+    83→    83→
+    84→    84→  /* ----------------------------------------------------------------- card */
+    85→    85→  .hp-card{
+    86→    86→    position:absolute;left:0;top:0;z-index:2;
+    87→    87→    width:var(--w);height:var(--h);
+    88→    88→    font-size:calc(var(--w) / 24);        /* 1em = 1/24 of card width */
+    89→    89→    transform-origin:0 0;transform-style:preserve-3d;will-change:transform;
+    90→    90→    touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;
+    91→    91→    opacity:0;
+    92→    92→  }
+    93→    93→  .hp-ready .hp-card{opacity:1;transition:opacity .18s ease-out}
+    94→    94→  .hp-stage.is-grabbed .hp-card{cursor:grabbing}
+    95→    95→
+    96→    96→  .hp-plate,.hp-core,.hp-face{position:absolute;inset:0;border-radius:1.15em}
+    97→    97→  .hp-plate{background:var(--hp-plate);backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:translate3d(.6em,.6em,-3px)}   /* hard offset shadow (front) */
+    98→    98→  .hp-plate.back{transform:rotateY(180deg) translate3d(-.6em,.6em,-3px)}                                                            /* …and seen from the back */
+    99→    99→  .hp-core{background:#c98a17}                                                        /* card thickness */
+   100→   100→  .hp-face{
+   101→   101→    backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;
+   102→   102→    display:flex;flex-direction:column;padding:2.5em 1.7em 1.25em;color:var(--hp-ink);
+   103→   103→    box-shadow:inset 0 0 0 .14em #fff7df;
+   104→   104→  }
+   105→   105→  .hp-front{
+   106→   106→    transform:translateZ(2px);
+   107→   107→    background:
+   108→   108→      radial-gradient(120% 70% at 15% 0%, var(--hp-card-hi) 0%, transparent 60%),
+   109→   109→      linear-gradient(165deg, var(--hp-card), var(--hp-card-lo));
+   110→   110→  }
+   111→   111→  .hp-back{
+   112→   112→    transform:rotateY(180deg) translateZ(2px);
+   113→   113→    background:
+   114→   114→      repeating-linear-gradient(-32deg, rgba(255,212,92,.06) 0 .12em, transparent .12em 1.1em),
+   115→   115→      #17171c;
+   116→   116→    color:#ffe6a0;
+   117→   117→  }
+   118→   118→  .hp-notch{
+   119→   119→    position:absolute;left:50%;top:0;width:2.5em;height:2.5em;margin:-1.25em 0 0 -1.25em;border-radius:50%;
+   120→   120→    background:var(--hp-bg);box-shadow:0 0 0 .16em #fff7df;
+   121→   121→  }
+   122→   122→
+   123→   123→  /* front content */
+   124→   124→  .hp-row{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--hp-mono);font-weight:700;font-size:.74em;letter-spacing:.05em;text-transform:uppercase}
+   125→   125→  .hp-title{margin:.45em 0 .15em;font-size:2.35em;line-height:1;font-weight:800;letter-spacing:-.03em}
+   126→   126→  .hp-sub{margin:0;font-size:.94em;line-height:1.28;font-weight:500;max-width:21em}
+   127→   127→  .hp-scan{display:flex;align-items:center;gap:1em;margin-top:.95em;padding:.8em;border-radius:1em;
+   128→   128→    background:rgba(255,255,255,.42);border:.1em solid rgba(255,255,255,.75)}
+   129→   129→  .hp-qr{flex:none;width:6em;height:6em;padding:.4em;border-radius:.55em;background:#fff;color:#111;display:grid;place-items:center;overflow:hidden}
+   130→   130→  .hp-qr>*{width:100%;height:100%;display:block}
+   131→   131→  .hp-meta{display:flex;flex-direction:column;gap:.35em;font-family:var(--hp-mono);min-width:0}
+   132→   132→  .hp-path{font-weight:700;font-size:1.02em;overflow-wrap:anywhere}
+   133→   133→  .hp-token{font-size:.84em}
+   134→   134→  .hp-token b{font-weight:700;background:rgba(35,26,5,.1);padding:.05em .3em;border-radius:.3em}
+   135→   135→  .hp-once{font-size:.78em;opacity:.75;display:flex;align-items:center;gap:.5em}
+   136→   136→  .hp-once i{width:.62em;height:.62em;border-radius:50%;background:#12a56d;box-shadow:0 0 0 .18em rgba(18,165,109,.25);animation:hp-pulse 2.2s ease-in-out infinite}
+   137→   137→  @keyframes hp-pulse{50%{box-shadow:0 0 0 .38em rgba(18,165,109,0)}}
+   138→   138→  .hp-list{list-style:none;margin:.95em 0 0;padding:0;display:grid;gap:.42em;font-family:var(--hp-mono);font-size:.82em}
+   139→   139→  .hp-list li::before{content:"—";font-weight:700;margin-right:.65em}
+   140→   140→  .hp-foot{margin-top:auto;padding-top:.7em;border-top:.13em dashed rgba(35,26,5,.45);display:flex;justify-content:space-between;align-items:flex-end;gap:1em;font-family:var(--hp-mono);font-size:.62em;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+   141→   141→  .hp-bars{height:1.9em;flex:1;max-width:11em;
+   142→   142→    background:repeating-linear-gradient(90deg,#231a05 0 .14em,transparent .14em .32em,#231a05 .32em .6em,transparent .6em .74em,#231a05 .74em .82em,transparent .82em 1.12em)}
+   143→   143→  /* shimmer that follows the card angle / cursor */
+   144→   144→  .hp-sheen{position:absolute;inset:0;pointer-events:none;mix-blend-mode:soft-light;
+   145→   145→    background:
+   146→   146→      radial-gradient(circle at var(--gx,50%) var(--gy,20%), rgba(255,255,255,.9), transparent 45%),
+   147→   147→      linear-gradient(105deg, transparent calc(var(--sheen,50%) - 18%), rgba(255,255,255,.75) var(--sheen,50%), transparent calc(var(--sheen,50%) + 18%));
+   148→   148→    opacity:.55}
+   149→   149→
+   150→   150→  /* back content */
+   151→   151→  .hp-stripe{margin:.4em -1.7em 0;height:3.1em;background:#050506}
+   152→   152→  .hp-back h3{margin:1.3em 0 .25em;font-size:1.55em;font-weight:800;letter-spacing:-.02em;color:var(--hp-card)}
+   153→   153→  .hp-back p{margin:0;font-size:.9em;line-height:1.35;max-width:20em;opacity:.85}
+   154→   154→  .hp-back .hp-foot{border-top-color:rgba(255,230,160,.4);color:#ffe6a0}
+   155→   155→  .hp-back .hp-bars{background:repeating-linear-gradient(90deg,#ffe6a0 0 .14em,transparent .14em .32em,#ffe6a0 .32em .6em,transparent .6em .74em,#ffe6a0 .74em .82em,transparent .82em 1.12em)}
+   156→   156→  .hp-sign{margin-top:1.1em;height:3.4em;border-radius:.5em;background:#f5efdc;color:#8a7a52;font-family:var(--hp-mono);font-size:.72em;display:flex;align-items:center;padding:0 1em}
+   157→   157→
+   158→   158→  /* metal clip */
+   159→   159→  .hp-clip{position:absolute;left:0;top:0;z-index:3;pointer-events:none;transform-origin:0 0;--cw:calc(var(--w)*.085);--ch:calc(var(--w)*.125)}
+   160→   160→  .hp-clip-body{position:absolute;left:calc(var(--cw) / -2);top:calc(var(--ch) * -.3);width:var(--cw);height:var(--ch);
+   161→   161→    border-radius:.45em .45em .8em .8em;border:2px solid #fff;
+   162→   162→    background:linear-gradient(90deg,#8d939d,#e4e7ec 45%,#a6acb6);
+   163→   163→    box-shadow:0 3px 6px rgba(0,0,0,.45), inset 0 -6px 8px rgba(0,0,0,.18)}
+   164→   164→  .hp-clip-body::after{content:"";position:absolute;left:50%;top:44%;width:34%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;
+   165→   165→    background:#3a3d44;box-shadow:inset 0 2px 3px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.6)}
+   166→   166→
+   167→   167→  .hp-hint{position:absolute;left:0;right:0;bottom:18px;margin:0;text-align:center;z-index:2;
+   168→   168→    font:400 13px/1 var(--hp-mono);color:rgba(255,255,255,.5);transition:opacity .6s;pointer-events:none}
+   169→   169→  .hp-stage.has-touched .hp-hint{opacity:0}
+   170→   170→
+   171→   171→  @media (prefers-reduced-motion:reduce){ .hp-once i{animation:none} }
+   172→   172→</style>
+   173→   173→</head>
+   174→   174→<body>
+   175→   175→
+   176→   176→<!-- DEMO ONLY: replace with your real site header -->
+   177→   177→<header class="demo-header"><b>schoolhub</b><a class="demo-btn" href="#">Sign in</a></header>
+   178→   178→
+   179→   179→<!-- =========================== COMPONENT START =========================== -->
+   180→   180→<section class="hp-stage" id="hpStage" aria-label="Staff invite hall pass">
+   181→   181→
+   182→   182→  <svg class="hp-strap" aria-hidden="true">
+   183→   183→    <path class="s-edge" id="sEdge"/><path class="s-body" id="sBody"/><path class="s-rib" id="sRib"/>
+   184→   184→  </svg>
+   185→   185→
+   186→   186→  <div class="hp-card" id="hpCard" role="img" aria-label="Staff invite hall pass. Drag to move, tap to flip.">
+   187→   187→    <div class="hp-plate"></div><div class="hp-plate back"></div>
+   188→   188→    <div class="hp-core" style="transform:translateZ(-1.5px)"></div>
+   189→   189→    <div class="hp-core" style="transform:translateZ(0)"></div>
+   190→   190→    <div class="hp-core" style="transform:translateZ(1.5px)"></div>
+   191→   191→
+   192→   192→    <!-- FRONT -->
+   193→   193→    <div class="hp-face hp-front">
+   194→   194→      <i class="hp-notch"></i>
+   195→   195→      <div class="hp-row"><span id="hpEyebrow">Staff invite</span><span>No. <span id="hpNumber">0042</span></span></div>
+   196→   196→      <h2 class="hp-title" id="hpTitle">Hall Pass</h2>
+   197→   197→      <p class="hp-sub" id="hpSub">Scan to join — role and school are filled in for you.</p>
+   198→   198→      <div class="hp-scan">
+   199→   199→        <div class="hp-qr" id="hpQR"></div>
+   200→   200→        <div class="hp-meta">
+   201→   201→          <span class="hp-path" id="hpPath">/register/teacher</span>
+   202→   202→          <span class="hp-token">?token=<b id="hpToken">7F3-91C</b></span>
+   203→   203→          <span class="hp-once"><i></i><span id="hpUsage">one-time use</span></span>
+   204→   204→        </div>
+   205→   205→      </div>
+   206→   206→      <ul class="hp-list" id="hpPerks"></ul>
+   207→   207→      <div class="hp-foot"><span id="hpSchoolFront">Your school</span><span class="hp-bars"></span></div>
+   208→   208→      <div class="hp-sheen"></div>
+   209→   209→    </div>
+   210→   210→
+   211→   211→    <!-- BACK -->
+   212→   212→    <div class="hp-face hp-back">
+   213→   213→      <i class="hp-notch"></i>
+   214→   214→      <div class="hp-stripe"></div>
+   215→   215→      <h3 id="hpSchoolBack">Your school</h3>
+   216→   216→      <p>This pass is issued to one person and works once. If you didn’t expect it, don’t scan it — tell the front office.</p>
+   217→   217→      <div class="hp-sign">signed at first scan</div>
+   218→   218→      <div class="hp-foot"><span>Non-transferable</span><span class="hp-bars"></span></div>
+   219→   219→      <div class="hp-sheen"></div>
+   220→   220→    </div>
+   221→   221→  </div>
+   222→   222→
+   223→   223→  <div class="hp-clip" id="hpClip"><div class="hp-clip-body"></div></div>
+   224→   224→
+   225→   225→  <p class="hp-hint">drag it · fling it · tap to flip</p>
+   226→   226→</section>
+   227→   227→<!-- ============================ COMPONENT END ============================ -->
+   228→   228→
+   229→   229→<script>
+   230→   230→(() => {
+   231→   231→'use strict';
+   232→   232→
+   233→   233→/* =========================================================================
+   234→   234→   CONFIG — edit here (or call HallPass.configure({...}) at runtime)
+   235→   235→   ========================================================================= */
+   236→   236→const CONFIG = {
+   237→   237→  eyebrow : 'Staff invite',
+   238→   238→  number  : '0042',
+   239→   239→  title   : 'Hall Pass',
+   240→   240→  subtitle: 'Scan to join — role and school are filled in for you.',
+   241→   241→  path    : '/register/teacher',
+   242→   242→  token   : '7F3-91C',
+   243→   243→  usage   : 'one-time use',
+   244→   244→  perks   : ['Role auto-assigned', 'School auto-linked', 'Expires after first scan'],
+   245→   245→  school  : 'Your school',
+   246→   246→  qr      : null            // SVG string | image URL | DOM element. null = placeholder pattern
+   247→   247→};
+   248→   248→
+   249→   249→/* SIM:START ============================================================
+   250→   250→   Physics. DOM-free on purpose so it can be unit-tested / reused.
+   251→   251→   Coordinates are px, origin = top-left of the stage.
+   252→   252→   ======================================================================= */
+   253→   253→const TAU = Math.PI * 2;
+   254→   254→const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+   255→   255→const DT = 1 / 120;
+   256→   256→
+   257→   257→function createSim(o) {
+   258→   258→  const { ax, ay, W, H, L, gap, width, height, drop } = o;
+   259→   259→  const G = 4200, DAMP = 0.9965, ITERS = 10, N = 9, seg = L / N;
+   260→   260→
+   261→   261→  const pts = [];
+   262→   262→  const mk = (x, y, im) => { const p = { x, y, px: x, py: y, im }; pts.push(p); return p; };
+   263→   263→
+   264→   264→  /* --- initial pose --------------------------------------------------- */
+   265→   265→  const th0   = drop ? 0.32 : 0;
+   266→   266→  const cx0   = drop ? ax + Math.min(46, L * 0.15) : ax;
+   267→   267→  const cy0   = drop ? ay - L * 0.92 : ay + L;      // dropping: rope folded up, card above → falls
+   268→   268→  const anchor = mk(ax, ay, 0);
+   269→   269→  const rope = [anchor];
+   270→   270→  for (let i = 1; i < N; i++) {
+   271→   271→    const t = i / N;
+   272→   272→    rope.push(mk(ax + (cx0 - ax) * t, ay + (cy0 - ay) * t, 2.2));      // light rope points
+   273→   273→  }
+   274→   274→  const clip = mk(cx0, cy0, 1); rope.push(clip);
+   275→   275→
+   276→   276→  const cs = Math.cos(th0), sn = Math.sin(th0);
+   277→   277→  const place = (lx, ly) => mk(cx0 + lx * cs - ly * sn, cy0 + lx * sn + ly * cs, 1);
+   278→   278→  const TL = place(-W / 2, gap), TR = place(W / 2, gap), BR = place(W / 2, gap + H), BL = place(-W / 2, gap + H);
+   279→   279→  const cardPts = [clip, TL, TR, BR, BL];
+   280→   280→  const local = [[0, 0], [-W / 2, gap], [W / 2, gap], [W / 2, gap + H], [-W / 2, gap + H]];
+   281→   281→
+   282→   282→  /* --- constraints ---------------------------------------------------- */
+   283→   283→  const cons = [];
+   284→   284→  for (let i = 0; i < N; i++) cons.push({ a: rope[i], b: rope[i + 1], rest: seg, max: true });        // rope: can go slack, can’t stretch
+   285→   285→  for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) {                                      // card: rigid
+   286→   286→    cons.push({ a: cardPts[i], b: cardPts[j], rest: Math.hypot(local[i][0] - local[j][0], local[i][1] - local[j][1]), max: false });
+   287→   287→  }
+   288→   288→
+   289→   289→  if (drop) for (const p of pts) if (p.im) p.py = p.y - 700 * DT;    // initial downward speed
+   290→   290→
+   291→   291→  const sim = {
+   292→   292→    pts, rope, clip, TL, TR, BR, BL, W, H,
+   293→   293→    drag: null,
+   294→   294→    flipped: false,
+   295→   295→    yaw: 0, yawV: 0, pitch: 0, pitchV: 0,
+   296→   296→    hoverYaw: 0, hoverPitch: 0,
+   297→   297→    gx: 0.5, gy: 0.2,
+   298→   298→    time: 0,
+   299→   299→
+   300→   300→    step() {
+   301→   301→      const g2 = G * DT * DT;
+   302→   302→      for (const p of pts) if (p.im) {
+   303→   303→        const vx = (p.x - p.px) * DAMP, vy = (p.y - p.py) * DAMP;
+   304→   304→        p.px = p.x; p.py = p.y; p.x += vx; p.y += vy + g2;
+   305→   305→      }
+   306→   306→      if (this.drag) this._applyDrag();
+   307→   307→      for (let it = 0; it < ITERS; it++) for (const c of cons) {
+   308→   308→        const a = c.a, b = c.b;
+   309→   309→        let dx = b.x - a.x, dy = b.y - a.y;
+   310→   310→        const d = Math.hypot(dx, dy) || 1e-6;
+   311→   311→        if (c.max && d <= c.rest) continue;
+   312→   312→        const w = a.im + b.im; if (!w) continue;
+   313→   313→        const diff = (d - c.rest) / d;
+   314→   314→        a.x += dx * diff * (a.im / w); a.y += dy * diff * (a.im / w);
+   315→   315→        b.x -= dx * diff * (b.im / w); b.y -= dy * diff * (b.im / w);
+   316→   316→      }
+   317→   317→      const pad = 4;
+   318→   318→      for (const p of pts) if (p.im) {
+   319→   319→        if (p.x < pad) p.x = pad; else if (p.x > width - pad) p.x = width - pad;
+   320→   320→        if (p.y > height - pad) { p.y = height - pad; p.py = p.y + (p.py - p.y) * 0.2; }
+   321→   321→      }
+   322→   322→
+   323→   323→      /* --- 3D: yaw / pitch as damped springs driven by the card’s motion --- */
+   324→   324→      let vx = 0, vy = 0;
+   325→   325→      for (const p of [TL, TR, BR, BL]) { vx += p.x - p.px; vy += p.y - p.py; }
+   326→   326→      vx = vx / 4 / DT; vy = vy / 4 / DT;
+   327→   327→      const base = this.flipped ? Math.PI : 0;
+   328→   328→      const k = Math.round((this.yaw - base) / TAU);
+   329→   329→      const yTarget = base + k * TAU + this.hoverYaw;
+   330→   330→      const yAcc = -46 * (this.yaw - yTarget) - 6.2 * this.yawV + clamp(0.045 * vx, -40, 40);
+   331→   331→      this.yawV = clamp(this.yawV + yAcc * DT, -32, 32); this.yaw += this.yawV * DT;
+   332→   332→
+   333→   333→      const pTarget = this.hoverPitch + clamp(-vy * 0.00025, -0.35, 0.35);
+   334→   334→      const pAcc = -60 * (this.pitch - pTarget) - 9 * this.pitchV;
+   335→   335→      this.pitchV += pAcc * DT; this.pitch += this.pitchV * DT;
+   336→   336→      this.time += DT;
+   337→   337→    },
+   338→   338→
+   339→   339→    _applyDrag() {
+   340→   340→      const d = this.drag, P = [TL, TR, BR, BL];
+   341→   341→      const w = [(1 - d.u) * (1 - d.v), d.u * (1 - d.v), d.u * d.v, (1 - d.u) * d.v];
+   342→   342→      let gx = 0, gy = 0, s = 0;
+   343→   343→      for (let i = 0; i < 4; i++) { gx += w[i] * P[i].x; gy += w[i] * P[i].y; s += w[i] * w[i]; }
+   344→   344→      const k = 0.5, ex = (d.tx - gx) * k, ey = (d.ty - gy) * k;
+   345→   345→      for (let i = 0; i < 4; i++) { P[i].x += (w[i] / s) * ex; P[i].y += (w[i] / s) * ey; }
+   346→   346→    },
+   347→   347→
+   348→   348→    /* world point → card-local (0..1, 0..1) */
+   349→   349→    toUV(x, y) {
+   350→   350→      const ex = TR.x - TL.x, ey = TR.y - TL.y, fx = BL.x - TL.x, fy = BL.y - TL.y;
+   351→   351→      const px = x - TL.x, py = y - TL.y;
+   352→   352→      return { u: (px * ex + py * ey) / (W * W), v: (px * fx + py * fy) / (H * H) };
+   353→   353→    },
+   354→   354→    angle() { return Math.atan2(TR.y - TL.y, TR.x - TL.x); },
+   355→   355→
+   356→   356→    nudge(vx, vy) {
+   357→   357→      const f = DT * 0.02;
+   358→   358→      for (const p of [TL, TR, BR, BL, clip]) { p.px -= vx * f; p.py -= vy * f; }
+   359→   359→      this.yawV += clamp(vx * 0.0012, -6, 6);
+   360→   360→    },
+   361→   361→    flip() { this.flipped = !this.flipped; this.yawV += this.flipped ? 7 : -7; },
+   362→   362→    settle(seconds) { for (let i = 0; i < seconds / DT; i++) this.step(); }
+   363→   363→  };
+   364→   364→  return sim;
+   365→   365→}
+   366→   366→/* SIM:END ================================================================ */
+   367→   367→
+   368→   368→/* =========================================================================
+   369→   369→   DOM / rendering
+   370→   370→   ========================================================================= */
+   371→   371→const $ = id => document.getElementById(id);
+   372→   372→const stage = $('hpStage'), card = $('hpCard'), clipEl = $('hpClip');
+   373→   373→const sEdge = $('sEdge'), sBody = $('sBody'), sRib = $('sRib');
+   374→   374→const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+   375→   375→
+   376→   376→let sim = null, sw = 0, sh = 0, W = 0, H = 0, ax = 0, ay = 0;
+   377→   377→let first = true;
+   378→   378→
+   379→   379→function layout(drop) {
+   380→   380→  const r = stage.getBoundingClientRect();
+   381→   381→  sw = r.width; sh = r.height;
+   382→   382→  const L = clamp(sh * 0.28, 110, 300);
+   383→   383→  ay = -24; ax = sw / 2;
+   384→   384→  W = clamp(Math.min(sw * 0.86, 360, (sh - L - 60) / 1.14), 200, 360);
+   385→   385→  H = W * 1.14;
+   386→   386→  const gap = W * 0.045;
+   387→   387→  stage.style.setProperty('--w', W + 'px');
+   388→   388→  stage.style.setProperty('--h', H + 'px');
+   389→   389→  stage.style.setProperty('--sw', Math.round(W * 0.085) + 'px');
+   390→   390→  stage.classList.remove('hp-ready');
+   391→   391→  sim = createSim({ ax, ay, W, H, L, gap, width: sw, height: sh, drop });
+   392→   392→  if (!drop) sim.settle(5);
+   393→   393→  render();
+   394→   394→  requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.add('hp-ready')));
+   395→   395→}
+   396→   396→
+   397→   397→function strapPath(rope) {
+   398→   398→  const p = rope;
+   399→   399→  let d = `M${p[0].x.toFixed(1)},${(p[0].y - 120).toFixed(1)} L${p[0].x.toFixed(1)},${p[0].y.toFixed(1)}`;
+   400→   400→  for (let i = 0; i < p.length - 1; i++) {
+   401→   401→    const p0 = p[i - 1] || p[i], p1 = p[i], p2 = p[i + 1], p3 = p[i + 2] || p2;
+   402→   402→    d += ` C${(p1.x + (p2.x - p0.x) / 6).toFixed(1)},${(p1.y + (p2.y - p0.y) / 6).toFixed(1)} ` +
+   403→   403→         `${(p2.x - (p3.x - p1.x) / 6).toFixed(1)},${(p2.y - (p3.y - p1.y) / 6).toFixed(1)} ` +
+   404→   404→         `${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+   405→   405→  }
+   406→   406→  return d;
+   407→   407→}
+   408→   408→
+   409→   409→function render() {
+   410→   410→  const a = sim.angle(), tl = sim.TL;
+   411→   411→  card.style.transform =
+   412→   412→    `translate3d(${tl.x.toFixed(2)}px,${tl.y.toFixed(2)}px,0) rotate(${a.toFixed(4)}rad) ` +
+   413→   413→    `translate(${W / 2}px,${H / 2}px) perspective(1100px) rotateX(${sim.pitch.toFixed(4)}rad) rotateY(${sim.yaw.toFixed(4)}rad) ` +
+   414→   414→    `translate(${-W / 2}px,${-H / 2}px)`;
+   415→   415→  clipEl.style.transform = `translate(${sim.clip.x.toFixed(2)}px,${sim.clip.y.toFixed(2)}px) rotate(${a.toFixed(4)}rad)`;
+   416→   416→  const d = strapPath(sim.rope);
+   417→   417→  sEdge.setAttribute('d', d); sBody.setAttribute('d', d); sRib.setAttribute('d', d);
+   418→   418→  // shimmer follows the tilt
+   419→   419→  const s = 50 + Math.sin(sim.yaw) * 60 + a * 30;
+   420→   420→  card.style.setProperty('--sheen', clamp(s, -20, 120).toFixed(1) + '%');
+   421→   421→  card.style.setProperty('--gx', (sim.gx * 100).toFixed(1) + '%');
+   422→   422→  card.style.setProperty('--gy', (sim.gy * 100).toFixed(1) + '%');
+   423→   423→}
+   424→   424→
+   425→   425→/* ---- fixed-timestep loop ---- */
+   426→   426→let last = performance.now(), acc = 0;
+   427→   427→function frame(t) {
+   428→   428→  requestAnimationFrame(frame);
+   429→   429→  const dt = Math.min(0.05, (t - last) / 1000); last = t; acc += dt;
+   430→   430→  while (acc >= DT) { sim.step(); acc -= DT; }
+   431→   431→  render();
+   432→   432→}
+   433→   433→
+   434→   434→/* ---- pointer interaction ---- */
+   435→   435→let down = null, prev = null;
+   436→   436→const local = e => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+   437→   437→
+   438→   438→card.addEventListener('pointerdown', e => {
+   439→   439→  e.preventDefault();
+   440→   440→  try { card.setPointerCapture(e.pointerId); } catch (_) {}
+   441→   441→  const p = local(e), uv = sim.toUV(p.x, p.y);
+   442→   442→  sim.drag = { u: clamp(uv.u, 0, 1), v: clamp(uv.v, 0, 1), tx: p.x, ty: p.y };
+   443→   443→  sim.hoverYaw = sim.hoverPitch = 0;
+   444→   444→  down = { x: p.x, y: p.y, t: performance.now(), moved: false };
+   445→   445→  stage.classList.add('is-grabbed', 'has-touched');
+   446→   446→});
+   447→   447→
+   448→   448→window.addEventListener('pointermove', e => {
+   449→   449→  const p = local(e), now = performance.now();
+   450→   450→  if (sim.drag) {
+   451→   451→    sim.drag.tx = clamp(p.x, 0, sw); sim.drag.ty = clamp(p.y, 0, sh);
+   452→   452→    if (down && Math.hypot(p.x - down.x, p.y - down.y) > 6) down.moved = true;
+   453→   453→  } else if (e.pointerType === 'mouse') {
+   454→   454→    const uv = sim.toUV(p.x, p.y);
+   455→   455→    const inside = uv.u >= 0 && uv.u <= 1 && uv.v >= 0 && uv.v <= 1;
+   456→   456→    if (inside) {
+   457→   457→      sim.hoverYaw = (uv.u - 0.5) * 0.55; sim.hoverPitch = -(uv.v - 0.5) * 0.4;
+   458→   458→      sim.gx = uv.u; sim.gy = uv.v;
+   459→   459→      if (prev) {
+   460→   460→        const dtm = Math.max(1, now - prev.t);
+   461→   461→        const vx = clamp((p.x - prev.x) / dtm * 1000, -2500, 2500), vy = clamp((p.y - prev.y) / dtm * 1000, -2500, 2500);
+   462→   462→        sim.nudge(vx, vy);
+   463→   463→      }
+   464→   464→    } else { sim.hoverYaw = sim.hoverPitch = 0; }
+   465→   465→  }
+   466→   466→  prev = { x: p.x, y: p.y, t: now };
+   467→   467→});
+   468→   468→
+   469→   469→function release() {
+   470→   470→  if (!sim.drag) return;
+   471→   471→  sim.drag = null; stage.classList.remove('is-grabbed');
+   472→   472→  if (down && !down.moved && performance.now() - down.t < 350) sim.flip();
+   473→   473→  down = null;
+   474→   474→}
+   475→   475→window.addEventListener('pointerup', release);
+   476→   476→window.addEventListener('pointercancel', release);
+   477→   477→stage.addEventListener('pointerleave', () => { if (!sim.drag) sim.hoverYaw = sim.hoverPitch = 0; });
+   478→   478→
+   479→   479→/* ---- content + QR ---- */
+   480→   480→function placeholderQR(seed) {
+   481→   481→  const n = 25;
+   482→   482→  let h = 2166136261 >>> 0;
+   483→   483→  for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+   484→   484→  const rnd = () => { h = (h + 0x6D2B79F5) >>> 0; let t = Math.imul(h ^ (h >>> 15), 1 | h); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+   485→   485→  const finder = (i, j) => (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4));
+   486→   486→  let rects = '';
+   487→   487→  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+   488→   488→    let on;
+   489→   489→    const inTL = r < 8 && c < 8, inTR = r < 8 && c >= n - 8, inBL = r >= n - 8 && c < 8;
+   490→   490→    if (inTL || inTR || inBL) {
+   491→   491→      const i = inBL ? r - (n - 8) : r, j = inTR ? c - (n - 8) : c;
+   492→   492→      on = i < 7 && j < 7 && finder(i, j);
+   493→   493→    } else on = rnd() > 0.52;
+   494→   494→    if (on) rects += `<rect x="${c}" y="${r}" width="1.02" height="1.02"/>`;
+   495→   495→  }
+   496→   496→  return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" fill="currentColor" role="img" aria-label="QR code placeholder">${rects}</svg>`;
+   497→   497→}
+   498→   498→
+   499→   499→function setQR(src) {
+   500→   500→  const box = $('hpQR'); box.textContent = '';
+   501→   501→  if (src instanceof Element) box.appendChild(src);
+   502→   502→  else if (typeof src === 'string' && src.trim().startsWith('<svg')) box.innerHTML = src;
+   503→   503→  else if (typeof src === 'string' && src) { const img = new Image(); img.src = src; img.alt = 'QR code'; box.appendChild(img); }
+   504→   504→  else box.innerHTML = placeholderQR(CONFIG.path + CONFIG.token);
+   505→   505→}
+   506→   506→
+   507→   507→function renderContent() {
+   508→   508→  $('hpEyebrow').textContent = CONFIG.eyebrow;
+   509→   509→  $('hpNumber').textContent = CONFIG.number;
+   510→   510→  $('hpTitle').textContent = CONFIG.title;
+   511→   511→  $('hpSub').textContent = CONFIG.subtitle;
+   512→   512→  $('hpPath').textContent = CONFIG.path;
+   513→   513→  $('hpToken').textContent = CONFIG.token;
+   514→   514→  $('hpUsage').textContent = CONFIG.usage;
+   515→   515→  $('hpSchoolFront').textContent = CONFIG.school;
+   516→   516→  $('hpSchoolBack').textContent = CONFIG.school;
+   517→   517→  const ul = $('hpPerks'); ul.textContent = '';
+   518→   518→  CONFIG.perks.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+   519→   519→  setQR(CONFIG.qr);
+   520→   520→}
+   521→   521→
+   522→   522→/* ---- public API ---- */
+   523→   523→window.HallPass = {
+   524→   524→  configure(patch) { Object.assign(CONFIG, patch || {}); renderContent(); },
+   525→   525→  setQR(src) { CONFIG.qr = src; setQR(src); },
+   526→   526→  drop() { layout(!reduceMotion); },
+   527→   527→  flip() { sim.flip(); }
+   528→   528→};
+   529→   529→
+   530→   530→/* ---- boot ---- */
+   531→   531→renderContent();
+   532→   532→layout(!reduceMotion);
+   533→   533→requestAnimationFrame(frame);
+   534→   534→
+   535→   535→let rt;
+   536→   536→new ResizeObserver(() => {
+   537→   537→  clearTimeout(rt);
+   538→   538→  rt = setTimeout(() => {
+   539→   539→    const r = stage.getBoundingClientRect();
+   540→   540→    if (Math.abs(r.width - sw) > 1 || Math.abs(r.height - sh) > 1) layout(false);   // re-layout hanging (no re-drop)
+   541→   541→  }, 150);
+   542→   542→}).observe(stage);
+   543→   543→
+   544→   544→/* Ensure fonts have loaded before first paint feels final (no layout impact — sizes are em-based). */
+   545→   545→if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {});
+   546→   546→})();
+   547→   547→</script>
+   548→   548→</body>
+   549→   549→</html>
+   550→   550→
