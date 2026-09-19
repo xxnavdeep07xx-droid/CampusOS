@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { HallPassCard } from "@/components/brutal/hall-pass-card";
 
 
 /**
@@ -169,42 +170,8 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Hall-pass hero card */}
-            <div className="hallpass-wrap fade-up d1">
-              <div className="hallpass">
-                <div className="hallpass-head">
-                  <span className="hallpass-tag">Staff invite</span>
-                  <span className="hallpass-tag">No. 0042</span>
-                </div>
-                <h3>Hall Pass</h3>
-                <p>Scan to join — role and school are filled in for you.</p>
-                <div className="hallpass-body">
-                  <div className="qr">
-                    <div className="qr-eye tl" />
-                    <div className="qr-eye tr" />
-                    <div className="qr-eye bl" />
-                    <i style={{ top: "8px", left: "34px" }} />
-                    <i style={{ top: "16px", left: "42px" }} />
-                    <i style={{ top: "24px", left: "30px" }} />
-                    <i style={{ top: "34px", left: "46px" }} />
-                    <i style={{ top: "42px", left: "36px" }} />
-                    <i style={{ top: "44px", left: "8px" }} />
-                    <i style={{ top: "34px", left: "22px" }} />
-                    <i style={{ top: "26px", left: "44px" }} />
-                  </div>
-                  <div className="hallpass-code">
-                    <b>/register/teacher</b>
-                    ?token=7F3-91C<br />
-                    one-time use
-                  </div>
-                </div>
-                <ul className="hallpass-list">
-                  <li>Role auto-assigned</li>
-                  <li>School auto-linked</li>
-                  <li>Expires after first scan</li>
-                </ul>
-              </div>
-            </div>
+            {/* Hall-pass hero card — interactive with gravity physics */}
+            <HallPassCard />
           </div>
         </section>
 
@@ -420,33 +387,6 @@ const PAGE_CSS = `
   .headline u svg{position:absolute; left:0; bottom:-6px; width:100%; height:12px;}
   .hero-copy{max-width:52ch; color:var(--text-soft); font-size:17px; margin:20px 0 30px; font-weight:500;}
   .hero-ctas{display:flex; gap:14px; flex-wrap:wrap;}
-
-  /* hall-pass hero card */
-  .hallpass-wrap{display:flex; justify-content:center;}
-  .hallpass{
-    width:100%; max-width:360px; background:var(--yellow); color:var(--yellow-ink);
-    border:3px solid var(--line); border-radius:18px; box-shadow:9px 9px 0 var(--shadow);
-    padding:22px; transform:rotate(-2deg); position:relative;
-  }
-  .hallpass::before{
-    content:""; position:absolute; top:-10px; left:50%; transform:translateX(-50%);
-    width:56px; height:18px; border:3px solid var(--line); border-radius:0 0 40px 40px;
-    background:var(--bg); border-top:none;
-  }
-  .hallpass-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
-  .hallpass-tag{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.04em;}
-  .hallpass h3{font-size:20px; margin-bottom:6px;}
-  .hallpass p{font-size:13.5px; font-weight:600; opacity:.85; margin-bottom:16px;}
-  .hallpass-body{display:flex; gap:16px; align-items:center; background:rgba(255,255,255,.45); border:2px solid var(--line); border-radius:10px; padding:14px;}
-  .qr{width:66px; height:66px; position:relative; background:#fff; border:2px solid var(--line); border-radius:4px; flex-shrink:0;}
-  .qr-eye{position:absolute; width:16px; height:16px; border:3.5px solid var(--line);}
-  .qr-eye::after{content:""; position:absolute; inset:3.5px; background:var(--line);}
-  .qr-eye.tl{top:4px; left:4px;} .qr-eye.tr{top:4px; right:4px;} .qr-eye.bl{bottom:4px; left:4px;}
-  .qr i{position:absolute; width:4px; height:4px; background:var(--line); display:block;}
-  .hallpass-code{font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.7;}
-  .hallpass-code b{display:block; font-size:13px;}
-  .hallpass-list{list-style:none; margin:14px 0 0; padding:0; font-family:'IBM Plex Mono',monospace; font-size:12px; display:flex; flex-direction:column; gap:5px;}
-  .hallpass-list li::before{content:"— "; font-weight:700;}
 
   /* --- section headers --- */
   .sec-head{max-width:640px; margin-bottom:64px;}
