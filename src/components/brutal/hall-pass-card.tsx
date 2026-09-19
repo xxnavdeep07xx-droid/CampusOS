@@ -22,12 +22,10 @@ export function HallPassCard() {
   const angleRef = useRef(-2); // current angle in degrees
   const velocityRef = useRef(0); // angular velocity
   const targetAngleRef = useRef(-2); // target angle based on mouse
+  const isHoldingRef = useRef(false); // is right mouse button held?
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    let isHovering = false;
-    let mouseX = 0;
-
     function animate() {
       // Spring physics: pull toward target angle, with damping
       const angle = angleRef.current;
@@ -50,39 +48,54 @@ export function HallPassCard() {
       rafRef.current = requestAnimationFrame(animate);
     }
 
+    function handleMouseDown(e: MouseEvent) {
+      // Only respond to right mouse button (button 2) or left+hold
+      if (e.button !== 2) return;
+      e.preventDefault();
+      isHoldingRef.current = true;
+    }
+
+    function handleMouseUp(e: MouseEvent) {
+      if (e.button !== 2) return;
+      isHoldingRef.current = false;
+      targetAngleRef.current = -2; // return to rest
+    }
+
     function handleMouseMove(e: MouseEvent) {
       if (!wrapRef.current) return;
+      // Only swing when holding right mouse button
+      if (!isHoldingRef.current) return;
+
       const rect = wrapRef.current.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const deltaX = e.clientX - centerX;
 
-      // Map mouse X to angle: -200px → -15deg, 0px → 0deg, 200px → 15deg
-      // But offset by the resting angle of -2deg
+      // Map mouse X to angle: -250px → -15deg, 0px → 0deg, 250px → 15deg
       const maxAngle = 15;
       const normalizedX = Math.max(-1, Math.min(1, deltaX / 250));
-      targetAngleRef.current = normalizedX * maxAngle + (isHovering ? 0 : -2);
-
-      // Also adjust string height based on distance from top
-      if (!isHovering) {
-        isHovering = true;
-      }
+      targetAngleRef.current = normalizedX * maxAngle;
     }
 
-    function handleMouseLeave() {
-      isHovering = false;
-      targetAngleRef.current = -2; // rest angle
+    // Prevent the browser context menu so right-click doesn't open it
+    function handleContextMenu(e: MouseEvent) {
+      if (!isHoldingRef.current) return;
+      e.preventDefault();
     }
 
     const wrap = wrapRef.current;
     if (!wrap) return;
 
+    wrap.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseUp);
     wrap.addEventListener("mousemove", handleMouseMove);
-    wrap.addEventListener("mouseleave", handleMouseLeave);
+    wrap.addEventListener("contextmenu", handleContextMenu);
     rafRef.current = requestAnimationFrame(animate);
 
     return () => {
+      wrap.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
       wrap.removeEventListener("mousemove", handleMouseMove);
-      wrap.removeEventListener("mouseleave", handleMouseLeave);
+      wrap.removeEventListener("contextmenu", handleContextMenu);
       cancelAnimationFrame(rafRef.current);
     };
   }, []);

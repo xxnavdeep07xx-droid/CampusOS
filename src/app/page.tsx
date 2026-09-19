@@ -110,6 +110,12 @@ const FEATURES = [
 export default function LandingPage() {
   return (
     <>
+      {/* Force light mode on the landing page — override any .dark class
+          set by the dashboard's theme toggle. */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        body { background: #FFFDF7 !important; color: #15171E !important; }
+        .dark body { background: #FFFDF7 !important; color: #15171E !important; }
+      `}} />
       <header>
         <div className="nav wrap">
           <Link href="/" className="logo">
