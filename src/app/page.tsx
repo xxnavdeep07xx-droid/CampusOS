@@ -107,13 +107,19 @@ const FEATURES = [
 ] as const;
 
 /** Inline script that runs BEFORE hydration to set data-theme on <html>.
- *  Uses a separate localStorage key ('campusos-theme') so it does not
- *  collide with the layout's .dark-class toggle. */
+ *  Follows the system theme (prefers-color-scheme) by default.
+ *  The toggle button still lets users override manually (saved in localStorage). */
 const earlyThemeScript = `
 (function(){
   try {
-    var t = localStorage.getItem('campusos-theme');
-    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    var stored = localStorage.getItem('campusos-theme');
+    if (stored === 'light' || stored === 'dark') {
+      document.documentElement.setAttribute('data-theme', stored);
+    } else {
+      // No manual override — follow the system theme
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    }
   } catch (e) {}
 })();
 `;
@@ -135,6 +141,18 @@ const themeToggleScript = `
       btn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
     }
     updateIcon(currentTheme());
+
+    // Listen for system theme changes — if user hasn't manually overridden, follow the system
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e){
+      var stored = null;
+      try { stored = localStorage.getItem('campusos-theme'); } catch(err){}
+      if (!stored) {
+        var next = e.matches ? 'dark' : 'light';
+        root.setAttribute('data-theme', next);
+        updateIcon(next);
+      }
+    });
+
     btn.addEventListener('click', function(){
       var next = currentTheme() === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', next);
