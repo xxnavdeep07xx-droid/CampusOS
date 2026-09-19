@@ -80,23 +80,27 @@ export function InteractiveGrid() {
           --my: -9999px;
 
           /* Grid pattern: two linear-gradients (vertical + horizontal lines)
-             at 20px intervals, 1px line width — classic math graph paper.
-             Both layers share this pattern; the spotlight layer just uses
-             a different color and is masked to the cursor area. */
+             at 20px intervals. Lines are 1px thick — classic math graph
+             paper. The 1px lines at 25% opacity are clearly visible as
+             distinct grid lines (not just a tint). */
           --grid-lines:
             linear-gradient(90deg, var(--line, #15171E) 1px, transparent 1px),
             linear-gradient(0deg,  var(--line, #15171E) 1px, transparent 1px);
           --grid-size: 20px 20px;
         }
 
-        /* Base layer: faint graph paper lines everywhere. */
+        /* Base layer: graph paper lines everywhere.
+           Opacity tuned to be clearly visible in BOTH light and dark
+           modes. In dark mode, --line becomes #F5F3EA (light cream) on
+           a #101218 (near-black) background. In light mode, --line is
+           #15171E (near-black) on #FFFDF7 (cream). */
         .hero-graph-bg::before {
           content: "";
           position: absolute;
           inset: 0;
           background-image: var(--grid-lines);
           background-size: var(--grid-size);
-          opacity: 0.08;
+          opacity: 0.35;
         }
 
         /* Spotlight layer: green lines near the cursor.
