@@ -107,71 +107,29 @@ const FEATURES = [
 ] as const;
 
 /** Inline script that runs BEFORE hydration to set data-theme on <html>.
- *  Follows the system theme (prefers-color-scheme) by default.
- *  The toggle button still lets users override manually (saved in localStorage). */
-const earlyThemeScript = `
+ *  Follows the system theme (prefers-color-scheme) automatically.
+ *  Listens for live system theme changes and updates instantly. */
+const themeScript = `
 (function(){
   try {
-    var stored = localStorage.getItem('campusos-theme');
-    if (stored === 'light' || stored === 'dark') {
-      document.documentElement.setAttribute('data-theme', stored);
-    } else {
-      // No manual override — follow the system theme
-      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-    }
-  } catch (e) {}
-})();
-`;
-
-/** Theme toggle button wiring — runs after DOM is ready. */
-const themeToggleScript = `
-(function(){
-  function init(){
     var root = document.documentElement;
-    var btn = document.getElementById('themeToggle');
-    if (!btn) return;
-    function currentTheme(){
-      var explicit = root.getAttribute('data-theme');
-      if (explicit) return explicit;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    function updateIcon(t){
-      btn.textContent = t === 'dark' ? '\\u2600\\uFE0F' : '\\u{1F319}';
-      btn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
-    }
-    updateIcon(currentTheme());
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
 
-    // Listen for system theme changes — if user hasn't manually overridden, follow the system
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e){
-      var stored = null;
-      try { stored = localStorage.getItem('campusos-theme'); } catch(err){}
-      if (!stored) {
-        var next = e.matches ? 'dark' : 'light';
-        root.setAttribute('data-theme', next);
-        updateIcon(next);
-      }
-    });
+    // Set initial theme based on system preference
+    root.setAttribute('data-theme', mq.matches ? 'dark' : 'light');
 
-    btn.addEventListener('click', function(){
-      var next = currentTheme() === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', next);
-      try { localStorage.setItem('campusos-theme', next); } catch(e){}
-      updateIcon(next);
+    // Listen for system theme changes and update in real-time
+    mq.addEventListener('change', function(e){
+      root.setAttribute('data-theme', e.matches ? 'dark' : 'light');
     });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  } catch (e) {}
 })();
 `;
 
 export default function LandingPage() {
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: earlyThemeScript + "\\n" + themeToggleScript }} />
+      <script dangerouslySetInnerHTML={{ __html: themeScript }} />
 
       <header>
         <div className="nav wrap">
@@ -185,9 +143,6 @@ export default function LandingPage() {
             <Link href="/login" className="nav-login">
               Log in
             </Link>
-            <button className="theme-toggle" id="themeToggle" aria-label="Switch to dark mode">
-              🌙
-            </button>
             <Link href="/register/principal" className="btn btn-primary btn-sm">
               Register your school
             </Link>
@@ -471,13 +426,6 @@ const PAGE_CSS = `
   }
   .logo span{color:var(--green);}
   .nav-actions{display:flex; align-items:center; gap:10px;}
-  .theme-toggle{
-    width:42px; height:42px; border:3px solid var(--line); border-radius:10px;
-    background:var(--surface); box-shadow:3px 3px 0 var(--shadow);
-    display:flex; align-items:center; justify-content:center; font-size:17px;
-    cursor:pointer; padding:0;
-  }
-  .theme-toggle:hover{transform:translate(-1px,-1px); box-shadow:4px 4px 0 var(--shadow);}
   .nav-login{display:none; font-weight:700; text-decoration:none; padding:10px 4px;}
   @media(min-width:640px){ .nav-login{display:inline-flex;} }
 
