@@ -3,114 +3,129 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * HallPassCard — ID card that drops down from above on page load,
- * hanging from a lanyard strap with a metal clip.
+ * HallPassCard — ID card hanging from a lanyard that starts at the top
+ * of the page. On load, the card falls from above the viewport with
+ * real gravity physics (acceleration + bounce on settle).
  *
- * Animation: card starts above the viewport (translateY: -400px), then
- * drops down with a bounce (spring physics) to its resting position.
- * The lanyard strap is visible above the card, connecting to a clip.
- *
- * The card also has a subtle idle sway animation.
+ * Physics: the card uses a simple gravity simulation:
+ *   - velocity accumulates each frame (gravity = 0.8px/frame²)
+ *   - position updates by velocity
+ *   - when card reaches resting position, it bounces (velocity *= -0.4)
+ *   - bounces dampen until velocity < threshold → settled
+ *   - after settling, a gentle idle sway starts (pendulum)
  */
 export function HallPassCard() {
-  const [dropProgress, setDropProgress] = useState(0);
-  const [sway, setSway] = useState(0);
+  const [y, setY] = useState(-600); // start above viewport
+  const [rotate, setRotate] = useState(0);
+  const yRef = useRef(-600);
+  const velocityRef = useRef(0);
+  const settledRef = useRef(false);
+  const swayTimeRef = useRef(0);
   const rafRef = useRef<number>(0);
-  const startTimeRef = useRef<number>(0);
+
+  // Resting Y position (0 = card top at the lanyard bottom)
+  const REST_Y = 0;
+  const GRAVITY = 0.8;
+  const BOUNCE = 0.35; // energy retained on bounce (0 = no bounce, 1 = perfect)
+  const SETTLE_THRESHOLD = 1.5; // velocity below this = settled
 
   useEffect(() => {
-    // Drop animation: 1.2s with bounce easing
-    const DROP_DURATION = 1200;
-    const SWAY_START = 1300; // start swaying after drop settles
-
     function animate(timestamp: number) {
-      if (!startTimeRef.current) startTimeRef.current = timestamp;
-      const elapsed = timestamp - startTimeRef.current;
+      if (!settledRef.current) {
+        // Gravity phase: accelerate downward
+        velocityRef.current += GRAVITY;
+        yRef.current += velocityRef.current;
 
-      // Drop phase: 0 → 1 over DROP_DURATION
-      if (elapsed < DROP_DURATION) {
-        const t = elapsed / DROP_DURATION;
-        // Ease out with overshoot (bounce)
-        const eased = 1 - Math.pow(1 - t, 3) * Math.cos(t * Math.PI * 2.5);
-        setDropProgress(Math.min(eased, 1));
+        // Bounce when hitting resting position
+        if (yRef.current >= REST_Y) {
+          yRef.current = REST_Y;
+          velocityRef.current *= -BOUNCE;
+
+          // Check if settled
+          if (Math.abs(velocityRef.current) < SETTLE_THRESHOLD) {
+            settledRef.current = true;
+            yRef.current = REST_Y;
+            swayTimeRef.current = timestamp;
+          }
+        }
+
+        setY(yRef.current);
+
+        // Slight rotation during fall (tumbles a bit)
+        const fallProgress = Math.min(1, (REST_Y - yRef.current) / 600);
+        const tumble = (1 - fallProgress) * 8; // up to 8deg tumble
+        setRotate(tumble);
       } else {
-        setDropProgress(1);
-      }
-
-      // Sway phase: gentle pendulum after drop settles
-      if (elapsed > SWAY_START) {
-        const swayTime = (elapsed - SWAY_START) / 1000;
-        const swayAngle = Math.sin(swayTime * 0.8) * 2.5; // ±2.5deg
-        setSway(swayAngle);
+        // Sway phase: gentle pendulum after settling
+        const swayElapsed = (timestamp - swayTimeRef.current) / 1000;
+        const swayAngle = Math.sin(swayElapsed * 0.6) * 2; // ±2deg, slow
+        setRotate(swayAngle);
       }
 
       rafRef.current = requestAnimationFrame(animate);
     }
 
     rafRef.current = requestAnimationFrame(animate);
-
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // Translate from -400px (above viewport) to 0 (resting position)
-  const translateY = -400 * (1 - dropProgress);
-  const rotate = sway;
-
   return (
-    <div className="hallpass-wrap">
-      {/* Lanyard strap — visible above the card */}
-      <div className="lanyard" />
+    <div className="hallpass-container">
+      {/* Lanyard — starts from the very top of the page */}
+      <div className="lanyard-top" />
 
-      {/* Metal clip connecting lanyard to card */}
+      {/* Metal clip */}
       <div className="lanyard-clip" />
 
-      {/* The card itself */}
+      {/* The card — positioned by physics */}
       <div
-        className="hallpass"
+        className="hallpass-card-wrap"
         style={{
-          transform: `translateY(${translateY}px) rotate(${rotate}deg)`,
-          transformOrigin: "top center",
+          transform: `translateY(${y}px) rotate(${rotate}deg)`,
         }}
       >
-        {/* Hole at the top of the card (where clip attaches) */}
-        <div className="hallpass-hole" />
+        <div className="hallpass">
+          {/* Hole at top where clip goes through */}
+          <div className="hallpass-hole" />
 
-        <div className="hallpass-head">
-          <span className="hallpass-tag">Staff invite</span>
-          <span className="hallpass-tag">No. 0042</span>
-        </div>
-        <h3>Hall Pass</h3>
-        <p>Scan to join — role and school are filled in for you.</p>
-        <div className="hallpass-body">
-          <div className="qr">
-            <div className="qr-eye tl" />
-            <div className="qr-eye tr" />
-            <div className="qr-eye bl" />
-            <i style={{ top: "8px", left: "34px" }} />
-            <i style={{ top: "16px", left: "42px" }} />
-            <i style={{ top: "24px", left: "30px" }} />
-            <i style={{ top: "34px", left: "46px" }} />
-            <i style={{ top: "42px", left: "36px" }} />
-            <i style={{ top: "44px", left: "8px" }} />
-            <i style={{ top: "34px", left: "22px" }} />
-            <i style={{ top: "26px", left: "44px" }} />
+          <div className="hallpass-head">
+            <span className="hallpass-tag">Staff invite</span>
+            <span className="hallpass-tag">No. 0042</span>
           </div>
-          <div className="hallpass-code">
-            <b>/register/teacher</b>
-            ?token=7F3-91C
-            <br />
-            one-time use
+          <h3>Hall Pass</h3>
+          <p>Scan to join — role and school are filled in for you.</p>
+          <div className="hallpass-body">
+            <div className="qr">
+              <div className="qr-eye tl" />
+              <div className="qr-eye tr" />
+              <div className="qr-eye bl" />
+              <i style={{ top: "8px", left: "34px" }} />
+              <i style={{ top: "16px", left: "42px" }} />
+              <i style={{ top: "24px", left: "30px" }} />
+              <i style={{ top: "34px", left: "46px" }} />
+              <i style={{ top: "42px", left: "36px" }} />
+              <i style={{ top: "44px", left: "8px" }} />
+              <i style={{ top: "34px", left: "22px" }} />
+              <i style={{ top: "26px", left: "44px" }} />
+            </div>
+            <div className="hallpass-code">
+              <b>/register/teacher</b>
+              ?token=7F3-91C
+              <br />
+              one-time use
+            </div>
           </div>
+          <ul className="hallpass-list">
+            <li>Role auto-assigned</li>
+            <li>School auto-linked</li>
+            <li>Expires after first scan</li>
+          </ul>
         </div>
-        <ul className="hallpass-list">
-          <li>Role auto-assigned</li>
-          <li>School auto-linked</li>
-          <li>Expires after first scan</li>
-        </ul>
       </div>
 
       <style>{`
-        .hallpass-wrap {
+        /* Container — positioned in the hero grid */
+        .hallpass-container {
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -118,48 +133,69 @@ export function HallPassCard() {
           overflow: visible;
         }
 
-        /* Lanyard strap — a vertical strip above the card */
-        .lanyard {
-          width: 36px;
-          height: 60px;
+        /* Lanyard — extends from the top of the page down to the clip.
+           Uses position: absolute to reach the very top of the viewport. */
+        .lanyard-top {
+          position: absolute;
+          top: -100vh; /* reach to the top of the page */
+          left: 50%;
+          transform: translateX(-50%);
+          width: 28px;
+          height: 100vh; /* full viewport height — covers from top to here */
           background: repeating-linear-gradient(
             180deg,
-            #2a2a2a 0px,
-            #2a2a2a 3px,
-            #1a1a1a 3px,
-            #1a1a1a 6px
+            #1a1a1a 0px,
+            #1a1a1a 4px,
+            #0d0d0d 4px,
+            #0d0d0d 8px
           );
           border-left: 2px solid var(--line, #15171E);
           border-right: 2px solid var(--line, #15171E);
-          border-radius: 2px 2px 0 0;
-          position: relative;
-          z-index: 1;
+          z-index: 0;
         }
 
-        /* Metal clip — silver rectangle between lanyard and card */
+        /* Metal clip — between lanyard and card */
         .lanyard-clip {
-          width: 16px;
-          height: 22px;
-          background: linear-gradient(180deg, #e0e0e0 0%, #b0b0b0 40%, #c8c8c8 60%, #909090 100%);
+          width: 18px;
+          height: 26px;
+          background: linear-gradient(180deg, #d8d8d8 0%, #a8a8a8 35%, #c0c0c0 55%, #888888 100%);
           border: 2px solid var(--line, #15171E);
-          border-radius: 3px;
-          margin-top: -2px;
-          margin-bottom: -3px;
-          z-index: 2;
+          border-radius: 4px;
           position: relative;
-          box-shadow: 1px 1px 0 var(--shadow, #15171E);
+          z-index: 2;
+          box-shadow: 2px 2px 0 var(--shadow, #15171E);
+        }
+        .lanyard-clip::before {
+          content: "";
+          position: absolute;
+          top: 5px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #666;
+          border: 1.5px solid #444;
         }
         .lanyard-clip::after {
           content: "";
           position: absolute;
-          top: 4px;
+          bottom: -4px;
           left: 50%;
           transform: translateX(-50%);
-          width: 6px;
+          width: 10px;
           height: 6px;
-          border-radius: 50%;
-          background: #707070;
-          border: 1px solid #505050;
+          background: linear-gradient(180deg, #b0b0b0, #808080);
+          border: 2px solid var(--line, #15171E);
+          border-radius: 0 0 4px 4px;
+        }
+
+        /* Card wrapper — animated by physics (translateY + rotate) */
+        .hallpass-card-wrap {
+          transform-origin: top center;
+          will-change: transform;
+          position: relative;
+          z-index: 1;
         }
 
         /* The card */
@@ -172,22 +208,21 @@ export function HallPassCard() {
           border-radius: 18px;
           box-shadow: 9px 9px 0 var(--shadow, #15171E);
           padding: 22px;
+          padding-top: 28px;
           position: relative;
-          transform-origin: top center;
-          will-change: transform;
         }
 
-        /* Hole at the top of the card where the clip goes through */
+        /* Hole at the top of the card */
         .hallpass-hole {
           position: absolute;
           top: -8px;
           left: 50%;
           transform: translateX(-50%);
-          width: 24px;
+          width: 28px;
           height: 16px;
           border: 3px solid var(--line, #15171E);
           border-top: none;
-          border-radius: 0 0 12px 12px;
+          border-radius: 0 0 14px 14px;
           background: var(--bg, #FFFDF7);
         }
 
@@ -280,7 +315,7 @@ export function HallPassCard() {
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .hallpass {
+          .hallpass-card-wrap {
             transform: none !important;
           }
         }
