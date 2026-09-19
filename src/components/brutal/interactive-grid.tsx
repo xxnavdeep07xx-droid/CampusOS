@@ -60,9 +60,18 @@ export function InteractiveGrid() {
     <div ref={ref} className="hero-graph-bg" aria-hidden="true">
       <style>{`
         .hero-graph-bg {
-          /* Cover the parent (.hero) completely */
+          /* Break out of the .wrap container (max-width: 1180px) so the
+             grid spans the full viewport width. Standard CSS technique:
+             position relative to the hero (which is position: relative),
+             then offset left:50% and translateX(-50%) to center, with
+             width: 100vw to span the full viewport.
+             inset:0 vertically (top/bottom) keeps it filling the hero height. */
           position: absolute;
-          inset: 0;
+          top: 0;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 100vw;
           z-index: 0;
           pointer-events: none;
 
