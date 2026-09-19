@@ -131,9 +131,65 @@ export default function LandingPage() {
           --blue-ink: #0B1B4D !important;
           background: #FFFDF7 !important;
         }
-        html.dark body {
-          background: #FFFDF7 !important;
-          color: #15171E !important;
+        html.dark body,
+        html.dark main,
+        html.dark header,
+        html.dark section,
+        html.dark footer,
+        html.dark .brut,
+        html.dark .hallpass,
+        html.dark .hallpass-wrap,
+        html.dark .step,
+        html.dark .why-card,
+        html.dark .feature-card,
+        html.dark .cta-band,
+        html.dark .nav {
+          background: var(--bg, #FFFDF7) !important;
+          color: var(--text, #15171E) !important;
+        }
+        html.dark .brut,
+        html.dark .step,
+        html.dark .why-card,
+        html.dark .feature-card {
+          background: var(--surface, #FFFFFF) !important;
+        }
+        html.dark .cta-band {
+          background: var(--green, #17B978) !important;
+          color: var(--green-ink, #0B3626) !important;
+        }
+        html.dark .eyebrow {
+          background: var(--surface-2, #F3F1E6) !important;
+        }
+        html.dark .hero {
+          background: var(--bg, #FFFDF7) !important;
+        }
+        html.dark .stamp {
+          background: var(--surface, #FFFFFF) !important;
+        }
+        html.dark .stamp.g {
+          background: var(--green, #17B978) !important;
+          color: var(--green-ink, #0B3626) !important;
+        }
+        html.dark .stamp.b {
+          background: var(--blue, #4D7CFE) !important;
+          color: #fff !important;
+        }
+        html.dark .role-tag {
+          background: var(--bg, #FFFDF7) !important;
+          color: var(--text, #15171E) !important;
+        }
+        html.dark .hallpass {
+          background: var(--yellow, #FFC93C) !important;
+          color: var(--yellow-ink, #3D2E00) !important;
+        }
+        html.dark .hallpass-pin {
+          background: var(--green, #17B978) !important;
+        }
+        html.dark .hallpass-string {
+          background: var(--line, #15171E) !important;
+        }
+        html.dark .hallpass-string::after {
+          background: var(--line, #15171E) !important;
         }
       `}} />
       <header>
