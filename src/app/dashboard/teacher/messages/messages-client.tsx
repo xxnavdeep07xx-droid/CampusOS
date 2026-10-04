@@ -48,12 +48,15 @@ export function MessagesClient({
   const [refreshKey, setRefreshKey] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // When initialPeerId changes (deep-link from directory), update selection.
-  useEffect(() => {
+  // When initialPeerId changes (deep-link from directory), follow it.
+  // Adjusted during render (documented React pattern) instead of in an effect.
+  const [lastInitialPeerId, setLastInitialPeerId] = useState(initialPeerId);
+  if (initialPeerId !== lastInitialPeerId) {
+    setLastInitialPeerId(initialPeerId);
     if (initialPeerId && initialPeerId !== selectedPeerId) {
       setSelectedPeerId(initialPeerId);
     }
-  }, [initialPeerId, selectedPeerId]);
+  }
 
   const fetchInbox = useCallback(async () => {
     try {
@@ -83,12 +86,17 @@ export function MessagesClient({
   }, []);
 
   useEffect(() => {
-    fetchInbox();
+    void (async () => {
+      await fetchInbox();
+    })();
   }, [fetchInbox, refreshKey]);
 
   // Load thread when peer changes.
   useEffect(() => {
-    if (selectedPeerId) fetchThread(selectedPeerId);
+    if (!selectedPeerId) return;
+    void (async () => {
+      await fetchThread(selectedPeerId);
+    })();
   }, [selectedPeerId, fetchThread, refreshKey]);
 
   // Auto-scroll to bottom when messages change.
@@ -167,23 +175,16 @@ export function MessagesClient({
   // if not found there (deep-link with no prior conversation), we need to
   // fetch it separately.
   const selectedPeer = conversations.find((c) => c.peer.id === selectedPeerId)?.peer;
-  const [fetchedPeer, setFetchedPeer] = useState<{ id: string; full_name: string; role: string } | null>(null);
+  // Deep-link to someone we have no conversation with yet: there is no API to
+  // fetch an arbitrary profile from the client, so show a placeholder and let
+  // the first message reveal the real name on the next inbox refresh.
+  // (Derived during render — no state, no effect.)
+  const placeholderPeer =
+    selectedPeerId && !selectedPeer
+      ? { id: selectedPeerId, full_name: "(new conversation)", role: "" }
+      : null;
 
-  useEffect(() => {
-    // If the selected peer is already in the inbox, no need to fetch.
-    if (!selectedPeerId || conversations.some((c) => c.peer.id === selectedPeerId)) {
-      setFetchedPeer(null);
-      return;
-    }
-    // Otherwise, fetch the peer's profile via the direct-messages endpoint
-    // (it returns an empty messages array + implicitly confirms the peer exists
-    // via the RLS check). We can't fetch arbitrary profiles from the client
-    // without an endpoint — so for now, we just show the peer ID and let the
-    // first message reveal the name on inbox refresh.
-    setFetchedPeer({ id: selectedPeerId, full_name: "(new conversation)", role: "" });
-  }, [selectedPeerId, conversations]);
-
-  const displayPeer = selectedPeer ?? (fetchedPeer as any);
+  const displayPeer = selectedPeer ?? placeholderPeer;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:h-[calc(100vh-220px)]">

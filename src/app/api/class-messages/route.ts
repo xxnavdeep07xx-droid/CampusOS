@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, school_id, class_id")
+    .select("id, role, school_id, class_id, full_name")
     .eq("id", user.id)
     .single();
   if (!profile) {

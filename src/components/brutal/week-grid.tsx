@@ -58,7 +58,7 @@ export function AddSlotModal({
   defaultClassId?: string;
   defaultDay?: DayOfWeek;
   triggerLabel?: string;
-  triggerVariant?: "emerald" | "violet" | "coral" | "amber" | "default";
+  triggerVariant?: "emerald" | "violet" | "coral" | "amber" | "default" | "ghost";
   onCreated?: () => void;
 }) {
   const [open, setOpen] = useState(false);

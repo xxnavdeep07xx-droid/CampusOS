@@ -1,8 +1,6 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# ── dependencies ────────────────────────────────────────────────
 node_modules
-/.pnp
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,59 +8,43 @@ node_modules
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# ── testing / coverage ─────────────────────────────────────────
 /coverage
 
-# next.js
+# ── next.js ────────────────────────────────────────────────────
 /.next/
 /out/
+next-env.d.ts
+*.tsbuildinfo
 
-# production
+# ── production ─────────────────────────────────────────────────
 /build
 
-# misc
+# ── misc ───────────────────────────────────────────────────────
 .DS_Store
 *.pem
-
-# debug
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-local-*
-.claude
-.z-ai-config
-*.log
 dev.log
-dev.out.log
-test
-prompt
-
 server.log
-# Skills directory
-/skills/
-# Scaffold / dev tooling (not part of CampusOS source)
-.zscripts/
-download/
-tests/
-scripts/render_uupm_skill_md.py
 
-# Prisma scaffold (not used in CampusOS — using Supabase directly)
-/prisma/
-/db/
-/examples/
-/mini-services/
-/Caddyfile
-supabase/.temp/
+# ── secrets — never commit real keys ───────────────────────────
+.env
+.env.*
+!.env.example
 client_secret_*.json
+
+# ── deploy / tooling ───────────────────────────────────────────
+.vercel
+supabase/.temp/
+.z-ai-config
+.claude
+
+# npm lockfile is not used — bun.lock is the source of truth
+package-lock.json
+
+# local design references / scratch material (not part of the app)
+/upload/

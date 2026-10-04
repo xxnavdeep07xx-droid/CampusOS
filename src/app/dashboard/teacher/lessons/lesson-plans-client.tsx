@@ -345,8 +345,17 @@ function EditLessonModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state when target changes (modal re-opens).
-  useMemo(() => {
+  // Reset the form when the modal (re)opens or the target lesson changes.
+  //
+  // React's documented "adjust state during render" pattern: it avoids the
+  // extra render + stale-value flash you get from an effect, and it keeps the
+  // reset logic out of a useMemo (which must stay side-effect free).
+  const syncKey = open
+    ? `${target?.id ?? "new"}:${initialDate ?? ""}:${classes[0]?.id ?? ""}`
+    : null;
+  const [syncedKey, setSyncedKey] = useState<string | null>(null);
+  if (syncKey !== syncedKey) {
+    setSyncedKey(syncKey);
     if (open) {
       setTitle(target?.title ?? "");
       setBody(target?.body ?? "");
@@ -359,7 +368,7 @@ function EditLessonModal({
       setSyllabusUnitId(target?.syllabus_unit_id ?? "");
       setError(null);
     }
-  }, [open, target, initialDate, classes]);
+  }
 
   async function handleSave() {
     if (!title.trim()) {

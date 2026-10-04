@@ -129,6 +129,7 @@ export function GoogleDriveClient({
 
   // Check URL for OAuth callback params on mount.
   useEffect(() => {
+    void (async () => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get("google_error");
     const success = params.get("google_connected");
@@ -149,15 +150,18 @@ export function GoogleDriveClient({
       window.history.replaceState({}, "", window.location.pathname);
       setTimeout(() => setOauthSuccess(false), 5000);
     }
+    })();
   }, []);
 
   // Initial fetch.
   useEffect(() => {
-    if (isConfigured) {
-      fetchFiles("root");
-    } else {
-      setLoading(false);
-    }
+    void (async () => {
+      if (isConfigured) {
+        await fetchFiles("root");
+      } else {
+        setLoading(false);
+      }
+    })();
   }, [fetchFiles, isConfigured]);
 
   function navigateToFolder(file: DriveFile) {
@@ -290,7 +294,7 @@ export function GoogleDriveClient({
                 {connection.google_email ? (
                   <>
                     {connection.picture_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img
                         src={connection.picture_url}
                         alt=""
