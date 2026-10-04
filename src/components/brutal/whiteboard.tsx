@@ -121,6 +121,15 @@ export function Whiteboard({
   const historyRef = useRef<string[]>([]);
   const historyIdxRef = useRef<number>(-1);
   const [, forceRerender] = useState(0);
+  // Mirror of the refs above, kept in state so the toolbar can render
+  // disabled/undo states without reading refs during render.
+  const [historyState, setHistoryState] = useState<{ idx: number; len: number }>({
+    idx: -1,
+    len: 0,
+  });
+  const syncHistoryState = useCallback(() => {
+    setHistoryState({ idx: historyIdxRef.current, len: historyRef.current.length });
+  }, []);
 
   // Text-tool state.
   const [textInputAt, setTextInputAt] = useState<{ x: number; y: number } | null>(null);
@@ -185,42 +194,6 @@ export function Whiteboard({
     }, 1500); // 1.5s debounce
   }, [boardId, canEdit]);
 
-  // ----- Canvas sizing -----
-  const resizeCanvases = useCallback(() => {
-    const wrap = wrapRef.current;
-    const bgCanvas = bgCanvasRef.current;
-    const drawCanvas = drawCanvasRef.current;
-    if (!wrap || !bgCanvas || !drawCanvas) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const w = wrap.clientWidth;
-    const h = wrap.clientHeight;
-
-    // Preserve the existing drawing across resizes: snapshot, resize, restore.
-    const prevSnapshot = drawCanvas.toDataURL("image/png");
-
-    [bgCanvas, drawCanvas].forEach((c) => {
-      c.width = Math.floor(w * dpr);
-      c.height = Math.floor(h * dpr);
-      c.style.width = `${w}px`;
-      c.style.height = `${h}px`;
-      const ctx = c.getContext("2d");
-      if (ctx) ctx.scale(dpr, dpr);
-    });
-
-    // Restore drawing (the bg canvas will be repainted separately).
-    const drawCtx = drawCanvas.getContext("2d");
-    if (drawCtx && prevSnapshot && prevSnapshot !== "data:,") {
-      const img = new Image();
-      img.onload = () => {
-        drawCtx.drawImage(img, 0, 0, w, h);
-      };
-      img.src = prevSnapshot;
-    }
-
-    paintBackground();
-  }, []);
-
   // ----- Background painting -----
   const paintBackground = useCallback(() => {
     const bg = bgCanvasRef.current;
@@ -279,6 +252,44 @@ export function Whiteboard({
     }
   }, [background]);
 
+  // ----- Canvas sizing -----
+  const resizeCanvases = useCallback(() => {
+    const wrap = wrapRef.current;
+    const bgCanvas = bgCanvasRef.current;
+    const drawCanvas = drawCanvasRef.current;
+    if (!wrap || !bgCanvas || !drawCanvas) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+
+    // Preserve the existing drawing across resizes: snapshot, resize, restore.
+    const prevSnapshot = drawCanvas.toDataURL("image/png");
+
+    [bgCanvas, drawCanvas].forEach((c) => {
+      c.width = Math.floor(w * dpr);
+      c.height = Math.floor(h * dpr);
+      c.style.width = `${w}px`;
+      c.style.height = `${h}px`;
+      const ctx = c.getContext("2d");
+      if (ctx) ctx.scale(dpr, dpr);
+    });
+
+    // Restore drawing (the bg canvas will be repainted separately).
+    const drawCtx = drawCanvas.getContext("2d");
+    if (drawCtx && prevSnapshot && prevSnapshot !== "data:,") {
+      const img = new Image();
+      img.onload = () => {
+        drawCtx.drawImage(img, 0, 0, w, h);
+      };
+      img.src = prevSnapshot;
+    }
+
+    paintBackground();
+  }, []);
+
+  // ----- Background painting -----
+
   // ----- Initial setup + resize observer -----
   useEffect(() => {
     resizeCanvases();
@@ -295,17 +306,37 @@ export function Whiteboard({
     paintBackground();
   }, [paintBackground]);
 
-  // When switching to chalkboard, default the color to white (chalk).
-  useEffect(() => {
-    if (background === "chalkboard" && color === PEN_COLORS[0]) {
+  // When the background switches, swap the pen to a readable default:
+  // white chalk on the chalkboard, black ink everywhere else.
+  // (Adjusted during render — React's documented pattern — so there is no
+  // extra paint with an unreadable colour.)
+  const [prevBackground, setPrevBackground] = useState(background);
+  if (background !== prevBackground) {
+    setPrevBackground(background);
+    if (background === "chalkboard" && color !== "#ffffff") {
       setColor("#ffffff");
-    }
-    if (background !== "chalkboard" && color === "#ffffff") {
+    } else if (background !== "chalkboard" && color === "#ffffff") {
       setColor(PEN_COLORS[0]);
     }
-  }, [background, color]);
+  }
 
   // ----- History (undo/redo) -----
+  /** Restore the draw canvas from a base64 PNG snapshot. */
+  function restoreSnapshot(dataUrl: string) {
+    const canvas = drawCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+    ctx.clearRect(0, 0, w, h);
+    if (!dataUrl) return;
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0, w, h);
+    img.src = dataUrl;
+  }
+
   const pushHistory = useCallback(() => {
     const canvas = drawCanvasRef.current;
     if (!canvas) return;
@@ -319,9 +350,10 @@ export function Whiteboard({
       historyIdxRef.current++;
     }
     forceRerender((n) => n + 1);
+    syncHistoryState();
     // Trigger auto-save after every stroke commit.
     scheduleSave();
-  }, [scheduleSave]);
+  }, [scheduleSave, syncHistoryState]);
 
   const undo = useCallback(() => {
     if (historyIdxRef.current <= 0) return;
@@ -329,8 +361,9 @@ export function Whiteboard({
     const snapshot = historyRef.current[historyIdxRef.current];
     restoreSnapshot(snapshot);
     forceRerender((n) => n + 1);
+    syncHistoryState();
     scheduleSave();
-  }, [scheduleSave]);
+  }, [scheduleSave, syncHistoryState]);
 
   const redo = useCallback(() => {
     if (historyIdxRef.current >= historyRef.current.length - 1) return;
@@ -338,23 +371,9 @@ export function Whiteboard({
     const snapshot = historyRef.current[historyIdxRef.current];
     restoreSnapshot(snapshot);
     forceRerender((n) => n + 1);
+    syncHistoryState();
     scheduleSave();
-  }, [scheduleSave]);
-
-  const restoreSnapshot = (dataUrl: string) => {
-    const canvas = drawCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.width / dpr;
-    const h = canvas.height / dpr;
-    ctx.clearRect(0, 0, w, h);
-    if (!dataUrl) return;
-    const img = new Image();
-    img.onload = () => ctx.drawImage(img, 0, 0, w, h);
-    img.src = dataUrl;
-  };
+  }, [scheduleSave, syncHistoryState]);
 
   // Initialize history with one empty snapshot so undo never goes below 0.
   useEffect(() => {
@@ -363,9 +382,10 @@ export function Whiteboard({
       if (canvas) {
         historyRef.current.push(canvas.toDataURL("image/png"));
         historyIdxRef.current = 0;
+        syncHistoryState();
       }
     }
-  }, []);
+  }, [syncHistoryState]);
 
   // ----- Pointer handlers -----
   const getCanvasPos = (e: React.PointerEvent<HTMLCanvasElement>): [number, number] => {
@@ -687,8 +707,8 @@ export function Whiteboard({
     a.click();
   };
 
-  const canUndo = historyIdxRef.current > 0;
-  const canRedo = historyIdxRef.current < historyRef.current.length - 1;
+  const canUndo = historyState.idx > 0;
+  const canRedo = historyState.idx < historyState.len - 1;
 
   return (
     <div className="space-y-3">

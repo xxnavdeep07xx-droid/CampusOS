@@ -55,7 +55,7 @@ export function AuthShell({
         <div className="relative mt-10">{side}</div>
 
         <div className="relative mt-10 text-xs font-bold uppercase tracking-wider text-slate-400">
-          Phase 1 · Auth + Onboarding
+          Secure sign-in · Your campus, one place
         </div>
       </aside>
 

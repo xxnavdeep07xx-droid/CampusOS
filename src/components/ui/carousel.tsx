@@ -95,6 +95,10 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return
+    // `onSelect` is a consumer callback (typically `setSelectedIndex`), so the
+    // React compiler lint rule flags this sync call. This is the upstream
+    // shadcn/ui implementation and the intended embla API handshake.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     onSelect(api)
     api.on("reInit", onSelect)
     api.on("select", onSelect)

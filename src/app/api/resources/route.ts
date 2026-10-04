@@ -165,7 +165,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Resource not found." }, { status: 404 });
   }
 
-  const cls = row.classes as { teacher_id: string } | null;
+  const cls = row.classes as unknown as { teacher_id: string } | null;
   if (!cls || cls.teacher_id !== user.id) {
     return NextResponse.json(
       { error: "Only the teacher of this class can delete resources." },

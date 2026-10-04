@@ -50,7 +50,14 @@ export function EditAssignmentModal({
   const [error, setError] = useState<string | null>(null);
 
   // Re-sync form state when the assignment prop changes (e.g. after refresh)
-  useEffect(() => {
+  // — adjusted during render (React's documented pattern) rather than in an
+  // effect, so there is no extra render with stale values.
+  const editSyncKey = open
+    ? `${assignment.id}:${assignment.title}:${assignment.description ?? ""}:${assignment.due_date ?? ""}`
+    : null;
+  const [editSyncedKey, setEditSyncedKey] = useState<string | null>(null);
+  if (editSyncKey !== editSyncedKey) {
+    setEditSyncedKey(editSyncKey);
     if (open) {
       setTitle(assignment.title);
       setDescription(assignment.description ?? "");
@@ -67,7 +74,7 @@ export function EditAssignmentModal({
       setConfirmingDelete(false);
       setError(null);
     }
-  }, [open, assignment]);
+  }
 
   async function handleSave() {
     if (!title.trim()) {

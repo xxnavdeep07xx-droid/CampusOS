@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 
 /**
@@ -11,34 +11,48 @@ import Image from "next/image";
  * entire viewport before the app content appears.
  *
  * Uses sessionStorage so it only shows once per browser session (not
- * on every navigation).
+ * on every navigation). The "have we shown it already?" flag is read
+ * through useSyncExternalStore so the value is available during render
+ * (no flash of the splash on subsequent navigations).
  */
+const subscribe = () => () => {};
+const getAlreadyShown = () => {
+  try {
+    return sessionStorage.getItem("splashShown") === "1";
+  } catch {
+    return false;
+  }
+};
+const getServerAlreadyShown = () => false;
+
 export function SplashScreen() {
-  const [visible, setVisible] = useState(true);
+  const alreadyShown = useSyncExternalStore(
+    subscribe,
+    getAlreadyShown,
+    getServerAlreadyShown
+  );
   const [fadeOut, setFadeOut] = useState(false);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Skip if already shown this session
-    if (sessionStorage.getItem("splashShown")) {
-      setVisible(false);
-      return;
-    }
-
-    // Start fade-out after 1.5s
+    if (alreadyShown) return;
+    // Start fade-out after 1.5s, then unmount after the 300ms transition.
     const fadeTimer = setTimeout(() => setFadeOut(true), 1500);
-    // Remove from DOM after fade completes (300ms transition)
     const removeTimer = setTimeout(() => {
-      setVisible(false);
-      sessionStorage.setItem("splashShown", "1");
+      try {
+        sessionStorage.setItem("splashShown", "1");
+      } catch {
+        /* private mode — splash simply shows again next load */
+      }
+      setDone(true);
     }, 1800);
-
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(removeTimer);
     };
-  }, []);
+  }, [alreadyShown]);
 
-  if (!visible) return null;
+  if (alreadyShown || done) return null;
 
   return (
     <div
@@ -47,76 +61,19 @@ export function SplashScreen() {
       }`}
       aria-hidden="true"
     >
-      {/* Subtle dot pattern background */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.04]"
-        style={{
-          backgroundImage: "radial-gradient(#FDFBF7 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
-        }}
-      />
-
-      {/* Logo with pulse animation */}
-      <div className="relative flex flex-col items-center gap-4">
-        <div className="animate-splash-pulse">
-          <Image
-            src="/logo.png"
-            alt="CampusOS"
-            width={96}
-            height={96}
-            className="rounded-2xl border-2 border-[#FDFBF7]/20 shadow-[0_0_40px_rgba(16,185,129,0.3)]"
-            priority
-          />
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xl font-black uppercase tracking-tight text-[#FDFBF7]">
-            Campus
-          </span>
-          <span className="text-xl font-black uppercase tracking-tight text-emerald-400">
-            OS
-          </span>
-        </div>
-        {/* Loading dots */}
-        <div className="flex gap-1.5">
-          <span
-            className="size-2 animate-bounce rounded-full bg-emerald-400"
-            style={{ animationDelay: "0ms" }}
-          />
-          <span
-            className="size-2 animate-bounce rounded-full bg-emerald-400"
-            style={{ animationDelay: "150ms" }}
-          />
-          <span
-            className="size-2 animate-bounce rounded-full bg-emerald-400"
-            style={{ animationDelay: "300ms" }}
-          />
+      <div className="flex flex-col items-center gap-4">
+        <Image
+          src="/logo.png"
+          alt="CampusOS"
+          width={96}
+          height={96}
+          priority
+          className="animate-pulse rounded-2xl border-2 border-[#FDFBF7]/20"
+        />
+        <div className="font-mono text-xs font-bold uppercase tracking-[0.3em] text-[#FDFBF7]/70">
+          CampusOS
         </div>
       </div>
-
-      {/* Animation keyframes */}
-      <style jsx>{`
-        @keyframes splash-pulse {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          50% {
-            transform: scale(1.05);
-            opacity: 0.9;
-          }
-        }
-        .animate-splash-pulse {
-          animation: splash-pulse 1.5s ease-in-out infinite;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .animate-splash-pulse {
-            animation: none;
-          }
-          .animate-bounce {
-            animation: none;
-          }
-        }
-      `}</style>
     </div>
   );
 }

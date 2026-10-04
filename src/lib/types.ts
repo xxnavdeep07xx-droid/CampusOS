@@ -28,6 +28,11 @@ export interface Profile {
    */
   class_id?: string | null;
   /**
+   * The transport stop this student is assigned to (nullable).
+   * Added in migration 0008. Schools that don't use transport leave it NULL.
+   */
+  transport_stop_id?: string | null;
+  /**
    * Free-text parent/guardian name for student profiles.
    * Added in migration 0009. Denormalized for quick access — the source of
    * truth for parent-user linkage is the `parent_student_links` table.

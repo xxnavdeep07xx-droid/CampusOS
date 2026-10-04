@@ -65,12 +65,13 @@ export async function GET(
   const attendanceRate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : null;
 
   // Fetch gradebook row.
-  let gradebook: Pick<GradebookRow, "percentage" | "assignment_earned_points" | "assignment_total_points" | "quiz_earned_points" | "quiz_total_points"> | null = null;
+  type GradebookPdfRow = Pick<GradebookRow, "percentage" | "assignment_earned_points" | "assignment_total_points" | "quiz_earned_points" | "quiz_total_points">;
+  let gradebook: GradebookPdfRow | null = null;
   const { data: gbRow } = await admin.from("class_gradebook")
     .select("percentage, assignment_earned_points, assignment_total_points, quiz_earned_points, quiz_total_points")
     .eq("student_id", studentId).maybeSingle();
   if (gbRow) {
-    gradebook = gbRow as typeof gradebook;
+    gradebook = gbRow as unknown as GradebookPdfRow;
   }
 
   // Generate the PDF.
@@ -84,7 +85,7 @@ export async function GET(
   });
 
   // Return as a downloadable PDF.
-  return new NextResponse(pdfBytes, {
+  return new NextResponse(pdfBytes as unknown as BodyInit, {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",

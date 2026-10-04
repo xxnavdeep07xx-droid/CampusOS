@@ -49,6 +49,7 @@ export function WhiteboardBoardGallery({
   migrationMissing: boolean;
 }) {
   const [boards, setBoards] = useState<BoardWithCreator[]>(initialBoards);
+  const router = useRouter();
 
   async function handleCreate(name: string) {
     try {
@@ -60,7 +61,7 @@ export function WhiteboardBoardGallery({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `Failed (HTTP ${res.status})`);
       // Navigate to the new board.
-      window.location.href = `/dashboard/classes/${classId}/whiteboard?board=${json.board.id}`;
+      router.push(`/dashboard/classes/${classId}/whiteboard?board=${json.board.id}`);
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     }
@@ -168,7 +169,7 @@ function BoardCard({
         className="block aspect-video overflow-hidden border-b-2 border-slate-900 bg-slate-100"
       >
         {thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img
             src={thumbnailUrl}
             alt={board.name}

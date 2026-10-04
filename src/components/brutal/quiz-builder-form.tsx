@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -93,6 +93,9 @@ export function QuizBuilderForm({
   });
 
   const { register, control, handleSubmit, watch, setValue, getValues } = form;
+  // useWatch keeps the publish toggle in sync without re-rendering the whole
+  // form on every keystroke (and keeps React Compiler happy).
+  const isPublished = useWatch({ control, name: "is_published" });
   const { fields, append, remove, move } = useFieldArray({
     control,
     name: "questions",
@@ -233,12 +236,12 @@ export function QuizBuilderForm({
               id="quiz-published"
               onClick={() => setValue("is_published", !getValues("is_published"))}
               className={`flex h-11 w-full items-center justify-between rounded-xl border-2 border-slate-900 px-4 text-sm font-bold uppercase tracking-wider transition-all ${
-                watch("is_published")
+                isPublished
                   ? "bg-emerald-500 text-[#FDFBF7] shadow-[2px_2px_0px_0px_rgba(5,150,105,1)]"
                   : "bg-white text-slate-900 hover:bg-amber-100"
               }`}
             >
-              {watch("is_published") ? "Published ✓" : "Save as draft"}
+              {isPublished ? "Published ✓" : "Save as draft"}
             </button>
           </div>
         </div>
@@ -347,7 +350,7 @@ export function QuizBuilderForm({
 // Single question block
 // ============================================================
 
-import { Control, UseFormGetValues, UseFormRegisterReturn, UseFormSetValue, UseFormWatch } from "react-hook-form";
+import { Control, UseFormGetValues, UseFormRegister, UseFormSetValue, UseFormWatch } from "react-hook-form";
 
 function QuestionBlock({
   index,
@@ -364,7 +367,7 @@ function QuestionBlock({
   isLast,
 }: {
   index: number;
-  register: (name: string, opts?: Record<string, unknown>) => UseFormRegisterReturn;
+  register: UseFormRegister<QuizFormValues>;
   control: Control<QuizFormValues>;
   watch: UseFormWatch<QuizFormValues>;
   setValue: UseFormSetValue<QuizFormValues>;

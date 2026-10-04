@@ -59,7 +59,9 @@ export function LiveClassChat({
   }, [classId]);
 
   useEffect(() => {
-    fetchMessages();
+    void (async () => {
+      await fetchMessages();
+    })();
   }, [fetchMessages]);
 
   // Realtime subscription.

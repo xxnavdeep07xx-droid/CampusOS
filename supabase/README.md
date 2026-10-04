@@ -1,116 +1,110 @@
 # CampusOS — Database Setup
 
-Phase 1 migration: [`migrations/0001_init.sql`](./migrations/0001_init.sql) — schools, profiles, classes, invitations + RLS.
+Every table, policy, trigger, view and storage bucket lives in
+[`migrations/`](./migrations). All scripts are **idempotent** (`IF NOT EXISTS`
+/ `DROP POLICY IF EXISTS`), so re-running them is safe.
 
-Phase 2 migration: [`migrations/0002_classroom_hub.sql`](./migrations/0002_classroom_hub.sql) — adds `class_id` to `profiles`, creates `resources`, `assignments`, `submissions` tables + two Supabase Storage buckets (`class_materials`, `student_submissions`) with their own RLS policies.
-
-Phase 3 migration: [`migrations/0003_attendance_timetable.sql`](./migrations/0003_attendance_timetable.sql) — creates `attendance` (with `attendance_status` enum + unique constraint per class/student/date) and `timetables` (with a GiST EXCLUDE constraint preventing overlapping slots per class+day) tables. Includes the `v_today_attendance_summary` view that powers the principal's "Today's Attendance Rate" widget.
-
-Phase 4 migration: [`migrations/0004_announcements_chat.sql`](./migrations/0004_announcements_chat.sql) — creates `announcements` (with `tag` enum-like CHECK constraint) and `class_messages` tables, enables Supabase Realtime publication on both, and sets `REPLICA IDENTITY FULL` so UPDATE/DELETE events carry the full row. Powers the real-time class feed + live chat.
-
-Phase 5 migration: [`migrations/0005_quizzes_gradebook.sql`](./migrations/0005_quizzes_gradebook.sql) — creates `quizzes`, `quiz_questions`, `quiz_attempts` tables + the `class_gradebook` view that aggregates Phase 2 submissions + Phase 5 quiz_attempts into a per-student percentage. Includes `question_type` enum (mcq/short_answer), `attempt_status` enum (in_progress/completed), and a unique partial index so each student has at most one in-progress attempt per quiz.
-
-Phase 6 migration: [`migrations/0006_fees_parent_portal.sql`](./migrations/0006_fees_parent_portal.sql) — adds `'parent'` to the `user_role` enum, creates `parent_student_links`, `fee_invoices` (with `invoice_status` enum pending/paid/overdue), `payments`, and `global_notices` tables. RLS: parents see their linked children's data; principals/staff manage invoices + notices; students see their own invoices. Global notices appear as a dismissible banner at the top of every user's dashboard.
-
-Phase 7 migration: [`migrations/0007_library_hr.sql`](./migrations/0007_library_hr.sql) — creates `books`, `book_issues` (with `issue_status` enum issued/returned/overdue), and `leave_requests` (with `leave_status` enum pending/approved/rejected) tables. Includes a DB trigger (`adjust_book_copies`) that auto-increments/decrements `available_copies` when books are issued or returned. RLS: school members can read books; students see their own issues; staff see their own leave requests; principals manage all leave requests in their school.
-
-Phase 8 migration: [`migrations/0008_transport_reports.sql`](./migrations/0008_transport_reports.sql) — creates `transport_routes` and `transport_stops` tables, adds `transport_stop_id` to `profiles` (nullable FK for students). RLS: school members read routes/stops; principals/staff write. Powers the transport management admin + parent/student timeline view.
+| # | Migration | Adds |
+|---|-----------|------|
+| 0001 | `0001_init.sql` | `schools`, `profiles`, `classes`, `invitations` + RLS + `auth.users` → `profiles` trigger |
+| 0002 | `0002_classroom_hub.sql` | `resources`, `assignments`, `submissions`, `class_id` on `profiles`, `class_materials` + `student_submissions` storage buckets |
+| 0003 | `0003_attendance_timetable.sql` | `attendance` (+ status enum), `timetables` (overlap-safe), `v_today_attendance_summary` view |
+| 0004 | `0004_announcements_chat.sql` | `announcements`, `class_messages` + Realtime publication |
+| 0005 | `0005_quizzes_gradebook.sql` | `quizzes`, `quiz_questions`, `quiz_attempts`, `class_gradebook` view |
+| 0006 | `0006_fees_parent_portal.sql` | `parent_student_links`, `fee_invoices`, `payments`, `global_notices`, `parent` role |
+| 0007 | `0007_library_hr.sql` | `books`, `book_issues` (+ copy-count trigger), `leave_requests` |
+| 0008 | `0008_transport_reports.sql` | `transport_routes`, `transport_stops`, `profiles.transport_stop_id` |
+| 0009 | `0009_behavior_incidents.sql` | `behavior_incidents` + `parent_contact`, `parent_phone`, `behavioral_notes` on `profiles` |
+| 0010 | `0010_academic_hub.sql` | `syllabus_units`, `lesson_plans`, `teacher_files` bucket |
+| 0011 | `0011_communication_center.sql` | `direct_messages` (1:1 messaging) |
+| 0012 | `0012_notifications.sql` | `notifications` inbox |
+| 0013 | `0013_whiteboard_boards.sql` | `whiteboard_boards` (persistent canvases) |
+| 0014 | `0014_google_drive_connections.sql` | `google_drive_connections` (OAuth tokens) |
+| 0015 | `0015_chat_groups.sql` | `chat_groups`, `chat_group_members`, `chat_group_messages`, `message_reactions` |
 
 ## Apply the migrations
 
-### Option A — Supabase Dashboard SQL Editor (easiest)
+### Option A — Supabase SQL Editor (easiest, no tools required)
 
-1. Open <https://supabase.com/dashboard/project/uprkvbkqelrovmwrzieu/sql/new>
-2. Copy the contents of `migrations/0001_init.sql` into the editor and click **Run**.
-3. Open a fresh SQL editor tab, paste `migrations/0002_classroom_hub.sql`, and click **Run**.
-4. Open another fresh SQL editor tab, paste `migrations/0003_attendance_timetable.sql`, and click **Run**.
-5. Open another fresh SQL editor tab, paste `migrations/0004_announcements_chat.sql`, and click **Run**.
-6. Open another fresh SQL editor tab, paste `migrations/0005_quizzes_gradebook.sql`, and click **Run**.
-7. Open another fresh SQL editor tab, paste `migrations/0006_fees_parent_portal.sql`, and click **Run**.
-8. Open another fresh SQL editor tab, paste `migrations/0007_library_hr.sql`, and click **Run**.
-9. Open another fresh SQL editor tab, paste `migrations/0008_transport_reports.sql`, and click **Run**.
+1. Open <https://supabase.com/dashboard/project/_/sql/new>
+2. Paste `migrations/0001_init.sql` → **Run**
+3. Repeat for `0002` → `0015` (one tab each, in order)
+4. Verify with the queries in [Verify](#verify) below
 
-All eight scripts are idempotent — safe to re-run.
+> Prefer the Supabase CLI (`supabase link && supabase db push`) if you already
+> have it configured — it tracks applied migrations for you.
 
-### Option B — `psql` from your local machine
+### Option B — `psql`
 
-```bash
-psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
-     -f supabase/migrations/0001_init.sql
-
-psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
-     -f supabase/migrations/0002_classroom_hub.sql
-
-psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
-     -f supabase/migrations/0003_attendance_timetable.sql
-
-psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
-     -f supabase/migrations/0004_announcements_chat.sql
-
-psql "postgresql://postgres:SjedAkLn91r1KB93@db.uprkvbkqelrovmwrzieu.supabase.co:5432/postgres" \
-     -f supabase/migrations/0005_quizzes_gradebook.sql
-```
-
-If the direct host is unreachable from your network, use the pooler URL instead (find the region under *Project Settings → Database → Connection string*):
+Set the connection string in your shell (never commit it — the
+`SUPABASE_DB_URL` is under *Project Settings → Database → Connection string*):
 
 ```bash
-psql "postgresql://postgres.uprkvbkqelrovmwrzieu:SjedAkLn91r1KB93@aws-0-<region>.pooler.supabase.com:5432/postgres" \
-     -f supabase/migrations/0005_quizzes_gradebook.sql
+export SUPABASE_DB_URL='postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres'
+
+for f in supabase/migrations/*.sql; do
+  echo "→ $f"
+  psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$f"
+done
 ```
 
-## Storage buckets (Phase 2)
+If the direct host is unreachable from your network, use the pooler URL
+(*Project Settings → Database → Connection pooling*):
 
-The Phase 2 migration creates two buckets via SQL:
+```bash
+export SUPABASE_DB_URL='postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres'
+```
 
-| Bucket ID             | Public | Purpose                                                |
-|-----------------------|--------|--------------------------------------------------------|
-| `class_materials`     | true   | Teacher-uploaded resources + assignment attachments    |
-| `student_submissions` | false  | Student-uploaded homework files (private — student + teacher only) |
-
-These buckets were also created programmatically via the Storage API during Phase 2 setup, so even if you skip the migration, the buckets exist. But the storage RLS policies inside `0002_classroom_hub.sql` are required for proper access control — please run the migration.
-
-## Verify the Phase 2 migration
+## Verify
 
 ```sql
--- All 7 tables (Phase 1 + Phase 2)
+-- Every CampusOS table should have rowsecurity = true
 SELECT tablename, rowsecurity
 FROM pg_tables
 WHERE schemaname = 'public'
 ORDER BY tablename;
 
--- Both buckets
+-- Storage buckets created by migration 0002 / 0010
 SELECT id, name, public FROM storage.buckets;
+
+-- Realtime-enabled tables (announcements, class_messages, chat groups)
+SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
 ```
-
-Expected tables (Phase 2 rows in bold):
-
-| tablename    | rowsecurity |
-|--------------|-------------|
-| assignments  | t           |
-| **classes**      | t           |
-| invitations  | t           |
-| profiles     | t           |
-| resources    | t           |
-| schools      | t           |
-| submissions  | t           |
 
 Expected buckets:
 
-| id                  | public |
-|---------------------|--------|
-| class_materials     | t      |
-| student_submissions | f      |
+| Bucket ID | Public | Purpose |
+|-----------|--------|---------|
+| `class_materials` | yes | Teacher-uploaded resources + assignment attachments |
+| `student_submissions` | **no** | Student homework (student + teacher only) |
+| `teacher_files` | no | Teacher personal drive (Google Drive import staging) |
 
-## Get the API keys (if you haven't already)
+## API keys
 
-1. <https://supabase.com/dashboard/project/uprkvbkqelrovmwrzieu/api-keys>
-2. Copy **`anon` `publishable`** key → paste into `.env.local` as `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. Copy **`service_role` `secret`** key → paste into `.env.local` as `SUPABASE_SERVICE_ROLE_KEY`
+1. <https://supabase.com/dashboard/project/_/settings/api>
+2. **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+3. **anon / publishable** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. **service_role / secret** key → `SUPABASE_SERVICE_ROLE_KEY` (server-only — never expose)
 
-Restart `bun run dev` after editing `.env.local`.
+Copy [`.env.example`](../.env.example) to `.env.local`, fill in the values, and
+restart `npm run dev`.
 
-## A note on pre-existing Phase 1 students
+## Auth settings checklist
 
-Phase 1's `profiles` table didn't have a `class_id` column. Phase 2's migration adds it (nullable). Students who registered through Phase 1 invites **will not** have `class_id` set automatically — the invite token stored the class_id, but the linkage wasn't persisted to the profile row.
+In **Authentication → URL Configuration**:
 
-If you have Phase 1 students without a class assignment, the cleanest fix is to re-invite them through a teacher. New students (going forward) will get `class_id` set automatically via the `completeInviteOnboarding` server action.
+- **Site URL** — your production URL (`https://your-domain.com`)
+- **Redirect URLs** — add `http://localhost:3000/**` and `https://your-domain.com/**`
+
+In **Authentication → Providers → Email**, keep "Confirm email" on for
+production so invitees verify their address before signing in.
+
+## Notes
+
+- **Phase 1 students without a class**: `profiles.class_id` arrived in migration
+  0002. Students who registered before it need to be re-invited so the class
+  linkage is persisted.
+- **Multi-tenancy**: every table is scoped by `school_id` and guarded by RLS;
+  cross-school reads are impossible with the anon key. Server-side admin
+  operations use the service-role client (`src/lib/supabase/admin.ts`) and
+  always re-check ownership before writing.

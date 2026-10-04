@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 
 /**
@@ -13,17 +13,27 @@ import { Moon, Sun } from "lucide-react";
  * layout.tsx (which runs before hydration). This component just updates
  * localStorage + the class + the cookie.
  */
-export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
+/**
+ * The dark class on <html> is the single source of truth (set by the inline
+ * script in layout.tsx before hydration). Subscribe to it so the button stays
+ * in sync without a state-in-effect.
+ */
+const subscribe = (onChange: () => void) => {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => observer.disconnect();
+};
+const getIsDark = () => document.documentElement.classList.contains("dark");
+const getServerIsDark = () => false;
 
-  // On mount, read the current theme from the <html> class.
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
+export function ThemeToggle() {
+  const isDark = useSyncExternalStore(subscribe, getIsDark, getServerIsDark);
 
   function toggle() {
     const next = !isDark;
-    setIsDark(next);
     const root = document.documentElement;
     if (next) {
       root.classList.add("dark");

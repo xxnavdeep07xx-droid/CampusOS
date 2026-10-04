@@ -37,6 +37,10 @@ export function InteractiveGrid() {
     if (!el) return;
     const parent = el.parentElement;
     if (!parent) return;
+    // Pin the narrowed refs: TypeScript resets `null`-narrowing inside the
+    // event handler closure below.
+    const gridEl = el;
+    const heroEl = parent;
 
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
@@ -45,11 +49,11 @@ export function InteractiveGrid() {
     if (reduceMotion || !hasHover) return;
 
     function onMove(e: MouseEvent) {
-      const rect = parent.getBoundingClientRect();
+      const rect = heroEl.getBoundingClientRect();
       // Only update when the hero is at least partially in view
       if (rect.bottom < 0 || rect.top > window.innerHeight) return;
-      el.style.setProperty("--mx", e.clientX - rect.left + "px");
-      el.style.setProperty("--my", e.clientY - rect.top + "px");
+      gridEl.style.setProperty("--mx", e.clientX - rect.left + "px");
+      gridEl.style.setProperty("--my", e.clientY - rect.top + "px");
     }
 
     window.addEventListener("mousemove", onMove, { passive: true });

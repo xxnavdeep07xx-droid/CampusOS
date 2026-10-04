@@ -100,7 +100,9 @@ export function AttendanceTaker({
 
   useEffect(() => {
     if (date === initialDate) return; // already loaded by server component
-    fetchForDate(date);
+    void (async () => {
+      await fetchForDate(date);
+    })();
   }, [date, initialDate, fetchForDate]);
 
   function handleStatusChange(studentId: string, status: AttendanceStatus) {

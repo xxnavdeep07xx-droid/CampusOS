@@ -126,15 +126,18 @@ export function GroupChatClient({
   }, []);
 
   useEffect(() => {
-    fetchGroups();
+    void (async () => {
+      await fetchGroups();
+    })();
   }, [fetchGroups, refreshKey]);
 
   useEffect(() => {
-    if (selectedGroupId) {
-      fetchThread(selectedGroupId);
-      fetchMembers(selectedGroupId);
+    if (!selectedGroupId) return;
+    void (async () => {
       setReplyingTo(null);
-    }
+      await fetchThread(selectedGroupId);
+      await fetchMembers(selectedGroupId);
+    })();
   }, [selectedGroupId, fetchThread, fetchMembers, refreshKey]);
 
   useEffect(() => {

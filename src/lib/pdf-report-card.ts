@@ -183,5 +183,5 @@ export function generateReportCardPDF(args: {
   boldText(`Generated on ${new Date().toLocaleDateString()}`, W - M - 180, y + 20, 8, [120, 120, 120]);
   boldText("CampusOS · Phase 8 Report Card Engine", M, y + 36, 7, [150, 150, 150]);
 
-  return doc.output("arraybuffer") as Uint8Array;
+  return doc.output("arraybuffer") as unknown as Uint8Array;
 }

@@ -41,7 +41,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Timetable slot not found." }, { status: 404 });
   }
 
-  const cls = slot.classes as { teacher_id: string } | null;
+  const cls = slot.classes as unknown as { teacher_id: string } | null;
   if (!cls || cls.teacher_id !== user.id) {
     return NextResponse.json(
       { error: "Only the teacher of this class can delete timetable slots." },

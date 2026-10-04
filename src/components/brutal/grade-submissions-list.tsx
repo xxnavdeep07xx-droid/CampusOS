@@ -47,7 +47,9 @@ export function GradeSubmissionsList({ assignmentId }: { assignmentId: string })
   }, [assignmentId]);
 
   useEffect(() => {
-    fetchSubs();
+    void (async () => {
+      await fetchSubs();
+    })();
   }, [fetchSubs, refreshKey]);
 
   async function handleGrade(submissionId: string, grade: number | null) {
@@ -130,7 +132,7 @@ export function GradeSubmissionsList({ assignmentId }: { assignmentId: string })
           <SubmissionsCardWithDownload
             key={s.id}
             submission={s}
-            student={s.student}
+            student={s.student ?? null}
             onGrade={(grade) => handleGrade(s.id, grade)}
             onDownload={() => handleDownload(s.file_path)}
           />

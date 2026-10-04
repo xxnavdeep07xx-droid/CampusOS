@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   BarChart3,
@@ -325,8 +326,15 @@ function EditQuizModal({ quiz }: { quiz: Quiz }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sync form when opening
-  useMemo(() => {
+  // Sync the form when the dialog opens (or when the quiz prop changes).
+  // Documented "adjust state during render" pattern — see React docs
+  // "You Might Not Need an Effect".
+  const syncKey = open
+    ? `${quiz.id}:${quiz.title}:${quiz.description ?? ""}:${quiz.due_date ?? ""}:${quiz.is_published}`
+    : null;
+  const [syncedKey, setSyncedKey] = useState<string | null>(null);
+  if (syncKey !== syncedKey) {
+    setSyncedKey(syncKey);
     if (open) {
       setTitle(quiz.title);
       setDescription(quiz.description ?? "");
@@ -342,7 +350,7 @@ function EditQuizModal({ quiz }: { quiz: Quiz }) {
       setIsPublished(quiz.is_published);
       setError(null);
     }
-  }, [open, quiz]);
+  }
 
   async function handleSave() {
     if (!title.trim()) {
@@ -483,6 +491,7 @@ function EditQuizModal({ quiz }: { quiz: Quiz }) {
  * DeleteQuizButton — destructive action with confirm dialog.
  */
 function DeleteQuizButton({ quiz, classId }: { quiz: Quiz; classId: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -496,8 +505,9 @@ function DeleteQuizButton({ quiz, classId }: { quiz: Quiz; classId: string }) {
       if (!res.ok) {
         throw new Error(json.error || `Failed (HTTP ${res.status})`);
       }
-      // Redirect back to the class page
-      window.location.href = `/dashboard/classes/${classId}`;
+      // Back to the class page.
+      router.push(`/dashboard/classes/${classId}`);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

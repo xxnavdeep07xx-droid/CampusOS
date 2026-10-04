@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -57,8 +58,7 @@ export async function signOutAction(): Promise<void> {
     console.warn("signOut error:", err);
   }
   revalidatePath("/", "page");
-  // Use window.location for sign-out — it's a full page reload anyway.
-  if (typeof window !== "undefined") {
-    window.location.href = "/";
-  }
+  // Server action used by a plain <form> (not wrapped in useActionState),
+  // so redirect() is safe here and lands the user back on the landing page.
+  redirect("/");
 }

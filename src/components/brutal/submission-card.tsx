@@ -34,7 +34,7 @@ export function SubmissionCard({
   submission: Submission;
   student: Pick<Profile, "id" | "full_name"> | null;
   downloadUrl?: string;
-  onDownload?: () => void;
+  onDownload?: (e: React.MouseEvent) => void | Promise<void>;
   onGrade?: (grade: number | null) => Promise<void>;
 }) {
   const [grade, setGrade] = useState<string>(

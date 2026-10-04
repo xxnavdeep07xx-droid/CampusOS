@@ -38,6 +38,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { announcementTagMeta, type Announcement, type AnnouncementTag, type Profile } from "@/lib/types";
 import { formatDateTime } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -92,13 +93,17 @@ export function AnnouncementsBoard({
   }, [classId]);
 
   useEffect(() => {
-    fetchAnnouncements();
+    // Kick the fetch through an async boundary so the state updates from
+    // `fetchAnnouncements` land after the effect body has finished.
+    void (async () => {
+      await fetchAnnouncements();
+    })();
   }, [fetchAnnouncements, refreshKey]);
 
   // Realtime subscription — listen for INSERT/UPDATE/DELETE on
   // announcements for this class.
   useEffect(() => {
-    let channel: ReturnType<typeof import("@/lib/supabase/browser").createClient>["channel"] | null = null;
+    let channel: RealtimeChannel | null = null;
     let unsubFn: (() => void) | null = null;
 
     (async () => {
@@ -121,7 +126,9 @@ export function AnnouncementsBoard({
             }
           )
           .subscribe();
-        unsubFn = () => supabase.removeChannel(channel!);
+        unsubFn = () => {
+          if (channel) void supabase.removeChannel(channel);
+        };
       } catch (err) {
         // Realtime may not be available if env vars are missing — tolerate.
         console.warn("Realtime subscription failed:", err);

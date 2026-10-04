@@ -59,7 +59,7 @@ export async function PATCH(
   }
 
   // The nested relation returns an array — handle both shapes.
-  const assignments = sub.assignments as
+  const assignments = sub.assignments as unknown as
     | { class_id: string; classes: { teacher_id: string } | { teacher_id: string }[] } | null;
   if (!assignments) {
     return NextResponse.json(

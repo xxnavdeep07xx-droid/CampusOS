@@ -68,8 +68,12 @@ export function QuizTaker({
     const elapsed = Math.floor((Date.now() - startedAt) / 1000);
     return Math.max(0, totalSeconds - elapsed);
   });
+  // Mirror the latest value into a ref so the interval callback always sees
+  // fresh seconds without tearing down/re-creating the interval each tick.
   const remainingRef = useRef(remaining);
-  remainingRef.current = remaining;
+  useEffect(() => {
+    remainingRef.current = remaining;
+  }, [remaining]);
 
   const handleSubmit = useCallback(
     async (auto = false) => {

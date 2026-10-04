@@ -1,25 +1,41 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+
+// Self-hosted display + mono faces (no runtime Google Fonts dependency, so
+// builds are hermetic and there is no third-party request on first paint).
+import "@fontsource/archivo/500.css";
+import "@fontsource/archivo/600.css";
+import "@fontsource/archivo/700.css";
+import "@fontsource/archivo/800.css";
+import "@fontsource/archivo/900.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource/ibm-plex-mono/600.css";
+import "@fontsource/ibm-plex-mono/700.css";
+
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SplashScreen } from "@/components/brutal/splash-screen";
 import { cookies } from "next/headers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FDFBF7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0F1115" },
+  ],
+};
 
 export const metadata: Metadata = {
-  title: "CampusOS — All-in-one School Management Platform",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "CampusOS — All-in-one School Management Platform",
+    template: "%s · CampusOS",
+  },
   description:
     "Invite-based multi-tenant school/college management platform. Principals register their school, invite staff & teachers. Teachers create classes, invite students. One OS for your whole campus.",
   keywords: [
@@ -47,6 +63,10 @@ export const metadata: Metadata = {
     title: "CampusOS",
     description: "All-in-one school management platform with invite-based onboarding.",
   },
+  // Rendered only when the token is provided (keeps the value out of source).
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
 };
 
 /**
@@ -91,21 +111,12 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={isDark ? "dark" : ""}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${isDark ? "dark" : ""}`}
     >
       <head>
-        <meta name="google-site-verification" content="KgDwrre-cXnz-BAH9zn9VQ3xgA0irhwZwgrGMt9x4P4" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap"
-          rel="stylesheet"
-        />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
-      >
+      <body className="antialiased min-h-screen flex flex-col">
         <SplashScreen />
         <QueryProvider>
           {children}

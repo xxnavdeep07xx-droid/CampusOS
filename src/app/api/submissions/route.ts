@@ -168,7 +168,7 @@ export async function GET(request: Request) {
   if (!assignment) {
     return NextResponse.json({ error: "Assignment not found." }, { status: 404 });
   }
-  const cls = assignment.classes as { teacher_id: string } | null;
+  const cls = assignment.classes as unknown as { teacher_id: string } | null;
   if (!cls || cls.teacher_id !== user.id) {
     return NextResponse.json(
       { error: "Only the teacher of this class can view submissions." },

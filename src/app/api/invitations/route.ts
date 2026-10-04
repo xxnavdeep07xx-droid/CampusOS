@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit } from "@/lib/rate-limit";
 import { inviteUrl, type UserRole } from "@/lib/types";
 
 /**
@@ -48,6 +49,21 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "You must be signed in to generate invitations." },
       { status: 401 }
+    );
+  }
+
+  // Best-effort abuse guard: 30 invites per minute per account.
+  const limited = rateLimit(`invitations:${user.id}`, {
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Too many invites generated. Please wait a moment and try again." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limited.retryAfterSeconds) },
+      }
     );
   }
 
@@ -237,7 +253,8 @@ export async function GET() {
     token: inv.token,
     isUsed: inv.is_used,
     classId: inv.class_id,
-    className: (inv.classes as { name: string } | null)?.name ?? null,
+    className:
+      (inv.classes as unknown as { name: string } | null)?.name ?? null,
     createdAt: inv.created_at,
     url: inviteUrl(inv.token, inv.role as UserRole),
   }));

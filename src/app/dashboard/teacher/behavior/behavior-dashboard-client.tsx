@@ -76,26 +76,6 @@ export function BehaviorDashboardClient({
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
 
-  if (migrationMissing) {
-    return (
-      <Card className="overflow-hidden border-amber-500 shadow-[4px_4px_0px_0px_rgba(245,158,11,1)]">
-        <div className="h-2 w-full border-x-2 border-t-2 border-amber-500 bg-amber-400" />
-        <CardContent className="space-y-2 py-5">
-          <h3 className="flex items-center gap-2 text-base font-black uppercase tracking-tight text-amber-700">
-            <AlertTriangle className="size-4" /> Phase 9 migration needed
-          </h3>
-          <p className="text-sm font-medium text-slate-700">
-            The <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">behavior_incidents</code> table
-            doesn&apos;t exist yet.
-          </p>
-          <p className="text-xs font-medium text-slate-600">
-            Apply <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">supabase/migrations/0009_behavior_incidents.sql</code>
-            {" "}via the Supabase SQL editor.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   // Stats — computed from all incidents (before filtering).
   const stats = useMemo(() => {
@@ -131,6 +111,28 @@ export function BehaviorDashboardClient({
     }
     return Object.entries(g).sort(([a], [b]) => b.localeCompare(a));
   }, [filtered]);
+
+  // Hooks above must run on every render — bail out only now.
+  if (migrationMissing) {
+    return (
+      <Card className="overflow-hidden border-amber-500 shadow-[4px_4px_0px_0px_rgba(245,158,11,1)]">
+        <div className="h-2 w-full border-x-2 border-t-2 border-amber-500 bg-amber-400" />
+        <CardContent className="space-y-2 py-5">
+          <h3 className="flex items-center gap-2 text-base font-black uppercase tracking-tight text-amber-700">
+            <AlertTriangle className="size-4" /> Phase 9 migration needed
+          </h3>
+          <p className="text-sm font-medium text-slate-700">
+            The <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">behavior_incidents</code> table
+            doesn&apos;t exist yet.
+          </p>
+          <p className="text-xs font-medium text-slate-600">
+            Apply <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">supabase/migrations/0009_behavior_incidents.sql</code>
+            {" "}via the Supabase SQL editor.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">

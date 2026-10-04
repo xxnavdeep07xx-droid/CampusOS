@@ -45,14 +45,26 @@ export function HallPassCard() {
   };
 
   useEffect(() => {
-    const stage = stageRef.current;
-    const card = cardRef.current;
-    const clipEl = clipRef.current;
-    const sEdge = sEdgeRef.current;
-    const sBody = sBodyRef.current;
-    const sRib = sRibRef.current;
-    const qrBox = qrRef.current;
-    if (!stage || !card || !clipEl || !sEdge || !sBody || !sRib || !qrBox) return;
+    /**
+     * Resolve a ref that is always rendered by this component.
+     *
+     * TypeScript drops `null`-narrowing inside the nested closures below, so
+     * we resolve + validate once here and hand the closures a non-nullable
+     * value. Throwing (rather than returning) keeps the types honest — every
+     * element is rendered unconditionally in the JSX below.
+     */
+    const el = <T,>(node: T | null, name: string): T => {
+      if (!node) throw new Error(`HallPassCard: missing ${name} element`);
+      return node;
+    };
+
+    const stage = el(stageRef.current, "stage");
+    const card = el(cardRef.current, "card");
+    const clipEl = el(clipRef.current, "clip");
+    const sEdge = el(sEdgeRef.current, "strap-edge");
+    const sBody = el(sBodyRef.current, "strap-body");
+    const sRib = el(sRibRef.current, "strap-rib");
+    const qrBox = el(qrRef.current, "qr");
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -305,6 +317,7 @@ export function HallPassCard() {
         },
         _applyDrag() {
           const d = this.drag;
+          if (!d) return;
           const P: Pt[] = [TL, TR, BR, BL];
           const w = [
             (1 - d.u) * (1 - d.v),
