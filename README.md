@@ -69,6 +69,7 @@ explains exactly what to add — it never 500s on a fresh clone.
 | `bun run lint` | ESLint (0 errors / 0 warnings on `main`) |
 | `bun run typecheck` | `tsc --noEmit` |
 | `bun run verify` | typecheck → lint → build, i.e. exactly what CI runs |
+| `./scripts/smoke.sh <url>` | Post-deploy smoke test (public routes + `/api/health`) |
 
 ## Deploy
 
@@ -107,6 +108,7 @@ Short version:
 │   │   ├── env.ts               # Env probing helpers (/setup, /api/health)
 │   │   └── types.ts             # Shared domain types
 │   └── proxy.ts                 # Session refresh + route protection (Next 16 proxy)
+├── scripts/smoke.sh             # post-deploy smoke test
 ├── DEPLOYMENT.md
 └── .github/workflows/ci.yml
 ```
