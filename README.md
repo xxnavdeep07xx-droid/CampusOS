@@ -19,6 +19,7 @@ Tailwind CSS 4 and a neo-brutalist shadcn/ui design system.
 | **Operations** | Fees & invoices + payment recording, library (issue desk + catalogue + copy tracking), transport routes & stops, staff HR (leave requests) |
 | **Teaching tools** | Lesson plans, syllabus tracker, behavior/incident log, whiteboard (persistent boards, export to PNG), teacher drive with Google Drive import/export |
 | **Platform** | Multi-tenant RLS on every table, cookie-based sessions via `@supabase/ssr`, role-aware navigation, dark mode, branded 404, health probe, sitemap + robots, CI (lint + types + build) |
+| **Marketing site** | Editorial landing page on `/`: cover story, before/after table, CSS product tour, role columns, setup timeline, 28-module feature index, trust checklist, FAQ (with FAQPage structured data) |
 
 ## Tech stack
 
@@ -91,7 +92,8 @@ Short version:
 ├── supabase/migrations/          # 0001 → 0015, idempotent SQL (schema + RLS)
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx             # Landing page (neo-brutalist hero + ID card)
+│   │   ├── page.tsx             # Landing page (editorial: hero, product tour,
+│   │   │                        #   roles, setup, feature index, trust, FAQ)
 │   │   ├── layout.tsx           # Root layout, theme script, fonts, metadata
 │   │   ├── login/ register/     # Auth + token-validated onboarding flows
 │   │   ├── setup/               # "Connect Supabase" screen (no credentials)
